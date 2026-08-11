@@ -1,5 +1,7 @@
 # Sax Helper
 
+### ▶ [Try it — bigdogco.github.io/SaxHelper](https://bigdogco.github.io/SaxHelper/)
+
 A small ear trainer for saxophone and voice. It plays a note without telling you
 what it is; you play or sing it back; when you hold the right pitch steady it
 reveals the note and rings a little arpeggio at you.
@@ -9,17 +11,17 @@ accounts, nothing stored anywhere. Open it and play.
 
 ## Running it
 
-Open `index.html` in Chrome, Edge or Firefox and allow the microphone.
+Use the link above — it's served over HTTPS, so the microphone works in every
+browser, phones included. On a phone, add it to your home screen and it opens
+full-screen like an app.
 
-**Safari won't work this way** — it refuses microphone access to local files.
-Serve the folder instead and open `http://localhost:8000`:
+To run it locally, open `index.html` in Chrome, Edge or Firefox and allow the
+microphone. **Safari won't work that way** — it refuses microphone access to
+local files. Serve the folder instead and open `http://localhost:8000`:
 
 ```
 python3 -m http.server 8000
 ```
-
-Any static host works too, which also gets you HTTPS and therefore a version
-that runs on a phone.
 
 ## How to use it
 

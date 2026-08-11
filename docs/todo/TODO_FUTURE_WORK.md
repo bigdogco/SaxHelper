@@ -26,9 +26,8 @@ pick from here when starting a new task.
   worth seeing.
 - **Session history.** Persist results in `localStorage` and show a trend. The
   session timer already gives a duration to record alongside the score.
-- **Publish it.** GitHub Pages from the repo root would serve it over HTTPS,
-  which is what Safari and phones require. Add a "Try it" link to the README
-  once that's live.
+- ~~**Publish it.**~~ Live at https://bigdogco.github.io/SaxHelper/ since
+  2026-08-11, served from `master` at the repo root. Every push updates it.
 
 ## App
 
