@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sax Helper — Ear Trainer</title>
+<style>
+  :root {
+    --bg: #14161a;
+    --panel: #1c1f26;
+    --line: #2b3038;
+    --text: #e7eaf0;
+    --dim: #8b94a3;
+    --accent: #4cc2ff;
+    --good: #3ddc84;
+    --warn: #ffb454;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 64px;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+  h1 { font-size: 20px; margin: 0; font-weight: 600; letter-spacing: .01em; }
+  .sub { color: var(--dim); font-size: 13px; margin: -14px 0 0; text-align: center; max-width: 460px; }
+  .panel {
+    width: 100%;
+    max-width: 520px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px;
+  }
+
+  /* --- main stage --- */
+  #stage { text-align: center; transition: background-color .25s; }
+  #stage.hit { background: #1b3324; border-color: var(--good); }
+  #answer {
+    font-size: 64px;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -.02em;
+    min-height: 72px;
+    font-variant-numeric: tabular-nums;
+  }
+  #answer.masked { color: var(--dim); }
+  #answerSub { color: var(--dim); font-size: 14px; min-height: 21px; }
+  #status { color: var(--dim); min-height: 22px; margin-top: 4px; }
+  #streak { color: var(--dim); font-size: 13px; margin-top: 10px; }
+
+  /* --- tuner meter --- */
+  #meterWrap { margin-top: 14px; }
+  #meter {
+    position: relative;
+    height: 44px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #10131a;
+    overflow: hidden;
+  }
+  #meter .center {
+    position: absolute; left: 50%; top: 0; bottom: 0;
+    width: 2px; margin-left: -1px; background: var(--line);
+  }
+  #meter .zone {
+    position: absolute; top: 0; bottom: 0; left: 50%;
+    background: rgba(61,220,132,.13);
+    border-left: 1px solid rgba(61,220,132,.3);
+    border-right: 1px solid rgba(61,220,132,.3);
+  }
+  #needle {
+    position: absolute; left: 50%; top: 5px; bottom: 5px;
+    width: 4px; margin-left: -2px; border-radius: 2px;
+    background: var(--accent);
+    transition: left .06s linear, background-color .1s;
+    opacity: 0;
+  }
+  #needle.live { opacity: 1; }
+  #needle.on { background: var(--good); }
+  .meterLabels {
+    display: flex; justify-content: space-between;
+    color: var(--dim); font-size: 11px; margin-top: 4px;
+  }
+  #heard { text-align: center; color: var(--dim); font-size: 13px; margin-top: 6px; min-height: 20px; font-variant-numeric: tabular-nums; }
+
+  /* --- controls --- */
+  .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
+  button {
+    font: inherit;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #262b34;
+    color: var(--text);
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: #2f3540; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #07242f; font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: #6bcdff; }
+
+  .settings { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
+  .settings label { display: block; color: var(--dim); font-size: 12px; margin-bottom: 4px; }
+  .settings select, .settings input[type=range] { width: 100%; }
+  select {
+    font: inherit; padding: 7px 8px; border-radius: 7px;
+    background: #262b34; color: var(--text); border: 1px solid var(--line);
+  }
+  .check { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 13px; }
+  .check input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .full { grid-column: 1 / -1; }
+  .val { color: var(--text); font-variant-numeric: tabular-nums; }
+  details summary { cursor: pointer; color: var(--dim); font-size: 13px; }
+  details[open] summary { margin-bottom: 14px; }
+  .hint { color: var(--dim); font-size: 12px; line-height: 1.5; }
+  kbd {
+    background: #262b34; border: 1px solid var(--line); border-bottom-width: 2px;
+    border-radius: 4px; padding: 1px 5px; font: 12px/1 ui-monospace, monospace;
+  }
+</style>
+</head>
+<body>
+
+<h1>Sax Helper — Note Matching</h1>
+<p class="sub">Hear a note, then play or sing it back. Hold it steady until it locks in.</p>
+
+<div class="panel" id="stage">
+  <div id="answer" class="masked">?</div>
+  <div id="answerSub"></div>
+  <div id="status">Press Start to enable your microphone.</div>
+
+  <div id="meterWrap" hidden>
+    <div id="meter">
+      <div class="zone" id="zone"></div>
+      <div class="center"></div>
+      <div id="needle"></div>
+    </div>
+    <div class="meterLabels"><span>flat</span><span>in tune</span><span>sharp</span></div>
+    <div id="heard"></div>
+  </div>
+
+  <div id="streak"></div>
+
+  <div class="row">
+    <button id="startBtn" class="primary">Start</button>
+    <button id="replayBtn" disabled>Replay note</button>
+    <button id="nextBtn" disabled>Skip / Next</button>
+  </div>
+</div>
+
+<div class="panel">
+  <details open>
+    <summary>Settings</summary>
+    <div class="settings">
+      <div class="full">
+        <label for="instrument">Instrument (notes below are shown as you finger them)</label>
+        <select id="instrument"></select>
+      </div>
+      <div>
+        <label for="lowNote">Lowest note</label>
+        <select id="lowNote"></select>
+      </div>
+      <div>
+        <label for="highNote">Highest note</label>
+        <select id="highNote"></select>
+      </div>
+      <div>
+        <label>Tolerance <span class="val" id="tolVal">50</span> cents</label>
+        <input type="range" id="tol" min="10" max="100" step="5" value="50">
+      </div>
+      <div>
+        <label>Hold for <span class="val" id="holdVal">0.6</span> s</label>
+        <input type="range" id="hold" min="0.2" max="2" step="0.1" value="0.6">
+      </div>
+      <div class="full check">
+        <input type="checkbox" id="showMeter" checked>
+        <label for="showMeter" style="margin:0">Show tuner meter (uncheck for pure ear training)</label>
+      </div>
+      <div class="full check">
+        <input type="checkbox" id="anyOctave">
+        <label for="anyOctave" style="margin:0">Accept the right note in any octave (useful for singing)</label>
+      </div>
+      <div class="full check">
+        <input type="checkbox" id="autoNext" checked>
+        <label for="autoNext" style="margin:0">Automatically move to the next note after a hit</label>
+      </div>
+      <div class="full check">
+        <input type="checkbox" id="noRepeat" checked>
+        <label for="noRepeat" style="margin:0">Never draw the same note twice in a row</label>
+      </div>
+      <p class="full hint" style="margin:2px 0 0">
+        Keys: <kbd>Space</kbd> replay the note &nbsp;·&nbsp; <kbd>N</kbd> next note<br>
+        <span id="rangeWarn"></span>
+      </p>
+    </div>
+  </details>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // Flat spellings: B♭ and E♭ horns live in flat keys, so this reads naturally.
+  const NAMES = ["C","D♭","D","E♭","E","F","G♭","G","A♭","A","B♭","B"];
+  const midiToName = m => NAMES[m % 12] + (Math.floor(m / 12) - 1);
+  const midiToFreq = m => 440 * Math.pow(2, (m - 69) / 12);
+  const freqToMidiFloat = f => 69 + 12 * Math.log2(f / 440);
+
+  const SELECT_LOW = 29, SELECT_HIGH = 84;   // F1 .. C6, concert
+  const DEFAULT_LOW = 43, DEFAULT_HIGH = 48; // G2 .. C3, concert
+
+  // How many semitones ABOVE the sounding pitch the written note sits.
+  const INSTRUMENTS = [
+    { id: "c",      label: "Concert pitch (voice, piano, flute)", offset: 0  },
+    { id: "bb-ten", label: "Tenor sax — B♭ (sounds a 9th lower)", offset: 14 },
+    { id: "eb-alt", label: "Alto sax — E♭ (sounds a 6th lower)", offset: 9  },
+    { id: "bb-sop", label: "Soprano sax / clarinet / trumpet — B♭ (sounds a tone lower)", offset: 2  },
+    { id: "eb-bar", label: "Baritone sax — E♭ (sounds an octave + 6th lower)", offset: 21 }
+  ];
+  const DEFAULT_INSTRUMENT = "bb-ten";
+
+  // Every saxophone shares the same written range, low B♭3 to high F#6.
+  const SAX_WRITTEN_LOW = 58, SAX_WRITTEN_HIGH = 90;
+
+  const $ = id => document.getElementById(id);
+  const el = {
+    stage: $("stage"), answer: $("answer"), answerSub: $("answerSub"),
+    status: $("status"), streak: $("streak"),
+    meterWrap: $("meterWrap"), needle: $("needle"), zone: $("zone"), heard: $("heard"),
+    startBtn: $("startBtn"), replayBtn: $("replayBtn"), nextBtn: $("nextBtn"),
+    instrument: $("instrument"), rangeWarn: $("rangeWarn"),
+    lowNote: $("lowNote"), highNote: $("highNote"),
+    tol: $("tol"), tolVal: $("tolVal"), hold: $("hold"), holdVal: $("holdVal"),
+    showMeter: $("showMeter"), anyOctave: $("anyOctave"),
+    autoNext: $("autoNext"), noRepeat: $("noRepeat")
+  };
+
+  // ---------- state ----------
+  let audioCtx = null, analyser = null, buf = null, micStream = null;
+  let running = false, target = null, prevTarget = null;
+  let listening = false;          // false while the target note is sounding
+  let inTuneSince = 0, solved = false;
+  let hits = 0, attempts = 0;
+  let rafId = null;
+
+  const METER_RANGE = 100;        // cents shown edge-to-edge each way
+
+  // ---------- transposition ----------
+  // Everything internal is concert MIDI; `written` is only for display.
+  const offset = () => INSTRUMENTS.find(i => i.id === el.instrument.value).offset;
+  const writtenMidi = concertMidi => concertMidi + offset();
+  const writtenName = concertMidi => midiToName(writtenMidi(concertMidi));
+
+  INSTRUMENTS.forEach(i =>
+    el.instrument.add(new Option(i.label, i.id, false, i.id === DEFAULT_INSTRUMENT)));
+
+  // ---------- note pickers ----------
+  for (let m = SELECT_LOW; m <= SELECT_HIGH; m++) {
+    el.lowNote.add(new Option("", m, false, m === DEFAULT_LOW));
+    el.highNote.add(new Option("", m, false, m === DEFAULT_HIGH));
+  }
+
+  function labelNoteOptions() {
+    const transposing = offset() !== 0;
+    for (const select of [el.lowNote, el.highNote]) {
+      for (const option of select.options) {
+        const m = +option.value;
+        option.textContent = transposing
+          ? `${writtenName(m)}   ·   ${midiToName(m)} concert`
+          : `${midiToName(m)}   ·   ${midiToFreq(m).toFixed(1)} Hz`;
+      }
+    }
+  }
+
+  function checkRange() {
+    const lo = writtenMidi(+el.lowNote.value), hi = writtenMidi(+el.highNote.value);
+    const isSax = el.instrument.value.includes("-");
+    let msg = "";
+    if (isSax && lo < SAX_WRITTEN_LOW) {
+      msg = `Heads up: ${midiToName(lo)} written is below your low ${midiToName(SAX_WRITTEN_LOW)} — ` +
+            `you can't finger it. Raise the low end, or answer those with your voice.`;
+    } else if (isSax && hi > SAX_WRITTEN_HIGH) {
+      msg = `Heads up: ${midiToName(hi)} written is above high ${midiToName(SAX_WRITTEN_HIGH)} — altissimo territory.`;
+    }
+    el.rangeWarn.textContent = msg;
+    el.rangeWarn.style.color = msg ? "var(--warn)" : "";
+  }
+
+  const keepRangeSane = changed => {
+    const lo = +el.lowNote.value, hi = +el.highNote.value;
+    if (lo > hi) {
+      if (changed === "low") el.highNote.value = lo;
+      else el.lowNote.value = hi;
+    }
+    checkRange();
+  };
+  el.lowNote.onchange = () => keepRangeSane("low");
+  el.highNote.onchange = () => keepRangeSane("high");
+  el.instrument.onchange = () => { labelNoteOptions(); checkRange(); refreshAnswer(); };
+  labelNoteOptions();
+  checkRange();
+
+  // ---------- settings wiring ----------
+  const tolerance = () => +el.tol.value;
+  const holdSeconds = () => +el.hold.value;
+  el.tol.oninput = () => { el.tolVal.textContent = el.tol.value; drawZone(); };
+  el.hold.oninput = () => { el.holdVal.textContent = (+el.hold.value).toFixed(1); };
+  el.showMeter.onchange = () => { el.meterWrap.hidden = !(running && el.showMeter.checked); };
+
+  function drawZone() {
+    const halfPct = Math.min(tolerance() / METER_RANGE, 1) * 50;
+    el.zone.style.left = (50 - halfPct) + "%";
+    el.zone.style.width = (halfPct * 2) + "%";
+  }
+  drawZone();
+
+  // ---------- audio out ----------
+  // A reedy-ish tone: sawtooth softened by a lowpass, with a gentle envelope.
+  function playTone(freq, duration = 1.6) {
+    const t0 = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const filter = audioCtx.createBiquadFilter();
+    const gain = audioCtx.createGain();
+
+    osc.type = "sawtooth";
+    osc.frequency.value = freq;
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(freq * 3, t0);
+    filter.frequency.linearRampToValueAtTime(freq * 6, t0 + 0.12);
+    filter.Q.value = 1;
+
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(0.28, t0 + 0.05);
+    gain.gain.setValueAtTime(0.28, t0 + duration - 0.25);
+    gain.gain.linearRampToValueAtTime(0, t0 + duration);
+
+    osc.connect(filter).connect(gain).connect(audioCtx.destination);
+    osc.start(t0);
+    osc.stop(t0 + duration + 0.05);
+
+    // Don't let the speakers answer the question for you.
+    listening = false;
+    inTuneSince = 0;
+    setTimeout(() => { if (running && !solved) listening = true; },
+               (duration + 0.15) * 1000);
+  }
+
+  function playVictory() {
+    const t0 = audioCtx.currentTime;
+    [0, 4, 7, 12].forEach((semi, i) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const at = t0 + i * 0.09;
+      osc.type = "triangle";
+      osc.frequency.value = midiToFreq(target + semi + 12);
+      gain.gain.setValueAtTime(0, at);
+      gain.gain.linearRampToValueAtTime(0.22, at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, at + 0.55);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(at);
+      osc.stop(at + 0.6);
+    });
+  }
+
+  // ---------- pitch detection ----------
+  // YIN: cumulative-mean-normalized difference function. Its minimum is sharp
+  // and, unlike plain autocorrelation, it doesn't favour the octave below.
+  // Returns frequency in Hz, or -1 when the input is too quiet or unpitched.
+  const MIN_HZ = 60, MAX_HZ = 1200;
+  const RMS_GATE = 0.008;     // below this it's room noise, not a note
+  const YIN_THRESHOLD = 0.15; // "good enough" dip; standard YIN value
+  let diff = null, diffNorm = null;
+
+  function detectPitch(data, sampleRate) {
+    const size = data.length;
+
+    let rms = 0;
+    for (let i = 0; i < size; i++) rms += data[i] * data[i];
+    if (Math.sqrt(rms / size) < RMS_GATE) return -1;
+
+    const maxLag = Math.floor(sampleRate / MIN_HZ);
+    const minLag = Math.max(2, Math.floor(sampleRate / MAX_HZ));
+    const win = size - maxLag - 1;              // fixed window: no length bias
+    if (win < minLag * 2) return -1;
+
+    if (!diff || diff.length < maxLag + 2) {
+      diff = new Float32Array(maxLag + 2);
+      diffNorm = new Float32Array(maxLag + 2);
+    }
+
+    for (let tau = 1; tau <= maxLag + 1; tau++) {
+      let sum = 0;
+      for (let i = 0; i < win; i++) {
+        const delta = data[i] - data[i + tau];
+        sum += delta * delta;
+      }
+      diff[tau] = sum;
+    }
+
+    let running = 0;
+    diffNorm[0] = 1;
+    for (let tau = 1; tau <= maxLag; tau++) {
+      running += diff[tau];
+      diffNorm[tau] = running === 0 ? 1 : diff[tau] * tau / running;
+    }
+
+    // First dip below threshold wins: the earliest good period is the
+    // fundamental, so this rejects the octave-too-low answer.
+    let tau = -1;
+    for (let t = minLag; t < maxLag; t++) {
+      if (diffNorm[t] < YIN_THRESHOLD) {
+        while (t + 1 < maxLag && diffNorm[t + 1] < diffNorm[t]) t++;
+        tau = t;
+        break;
+      }
+    }
+    if (tau < 0) {
+      let bestVal = Infinity;
+      for (let t = minLag; t <= maxLag; t++) {
+        if (diffNorm[t] < bestVal) { bestVal = diffNorm[t]; tau = t; }
+      }
+      if (bestVal > 0.35) return -1;   // nothing periodic enough to call a note
+    }
+
+    // One sample of period error is ~11 cents up at C5, so measure across the
+    // highest multiple of the period that still fits, then divide back down.
+    const k = Math.max(1, Math.floor((maxLag - 1) / tau));
+    let center = tau * k;
+    if (k > 1) {
+      let bestVal = Infinity, bestLag = center;
+      for (let t = center - k; t <= center + k; t++) {
+        if (t < minLag || t > maxLag) continue;
+        if (diff[t] < bestVal) { bestVal = diff[t]; bestLag = t; }
+      }
+      center = bestLag;
+    }
+
+    // Parabolic interpolation on the minimum, for sub-sample resolution.
+    let refined = center;
+    if (center > minLag && center < maxLag) {
+      const a = diff[center - 1], b = diff[center], c = diff[center + 1];
+      const denom = 2 * (2 * b - a - c);
+      if (denom !== 0) refined = center + (a - c) / denom;
+    }
+    return sampleRate * k / refined;
+  }
+
+  // ---------- game loop ----------
+  function centsFromTarget(freq) {
+    let cents = 1200 * Math.log2(freq / midiToFreq(target));
+    if (el.anyOctave.checked) {
+      cents -= 1200 * Math.round(cents / 1200);   // fold into nearest octave
+    }
+    return cents;
+  }
+
+  function tick() {
+    rafId = requestAnimationFrame(tick);
+    if (!running) return;
+
+    analyser.getFloatTimeDomainData(buf);
+    const freq = listening ? detectPitch(buf, audioCtx.sampleRate) : -1;
+    const showMeter = el.showMeter.checked;
+
+    if (freq <= 0) {
+      el.needle.classList.remove("live", "on");
+      el.heard.textContent = (listening || solved) ? "" : "listening paused while the note plays…";
+      inTuneSince = 0;
+      return;
+    }
+
+    const cents = centsFromTarget(freq);
+    const onPitch = Math.abs(cents) <= tolerance();
+
+    if (showMeter) {
+      const clamped = Math.max(-METER_RANGE, Math.min(METER_RANGE, cents));
+      el.needle.style.left = (50 + (clamped / METER_RANGE) * 50) + "%";
+      el.needle.classList.add("live");
+      el.needle.classList.toggle("on", onPitch);
+      const heardMidi = Math.round(freqToMidiFloat(freq));
+      el.heard.textContent =
+        `${freq.toFixed(1)} Hz · ${writtenName(heardMidi)}${offset() ? ` (${midiToName(heardMidi)} concert)` : ""}` +
+        ` · ${cents >= 0 ? "+" : ""}${cents.toFixed(0)} cents`;
+    }
+
+    if (solved) return;
+
+    if (onPitch) {
+      const now = performance.now();
+      if (!inTuneSince) inTuneSince = now;
+      const held = (now - inTuneSince) / 1000;
+      if (held >= holdSeconds()) {
+        succeed();
+      } else {
+        el.status.textContent = `Hold it… ${(holdSeconds() - held).toFixed(1)}s`;
+      }
+    } else {
+      inTuneSince = 0;
+      el.status.textContent = "Play or sing the note you heard.";
+    }
+  }
+
+  // Reveals or re-masks the answer; also called when the instrument changes.
+  function refreshAnswer() {
+    if (target === null) return;
+    if (solved) {
+      el.answer.textContent = writtenName(target);
+      el.answer.classList.remove("masked");
+      el.answerSub.textContent = offset()
+        ? `written ${writtenName(target)} · sounding ${midiToName(target)} concert · ${midiToFreq(target).toFixed(1)} Hz`
+        : `${midiToFreq(target).toFixed(1)} Hz`;
+    } else {
+      el.answer.textContent = "?";
+      el.answer.classList.add("masked");
+      el.answerSub.textContent = "";
+    }
+  }
+
+  function succeed() {
+    solved = true;
+    listening = false;
+    hits++; attempts++;
+    el.stage.classList.add("hit");
+    refreshAnswer();
+    el.status.textContent = `Got it — ${writtenName(target)}.`;
+    updateStreak();
+    playVictory();
+    if (el.autoNext.checked) setTimeout(() => { if (running && solved) newRound(); }, 2200);
+  }
+
+  function updateStreak() {
+    el.streak.textContent = attempts
+      ? `${hits} of ${attempts} matched${attempts ? ` · ${Math.round(hits / attempts * 100)}%` : ""}`
+      : "";
+  }
+
+  function pickTarget() {
+    const lo = +el.lowNote.value, hi = +el.highNote.value;
+    const span = hi - lo + 1;
+    let m = lo + Math.floor(Math.random() * span);
+    if (el.noRepeat.checked && span > 1 && m === prevTarget) {
+      m = lo + ((m - lo + 1 + Math.floor(Math.random() * (span - 1))) % span);
+    }
+    return m;
+  }
+
+  function newRound() {
+    prevTarget = target;
+    target = pickTarget();
+    solved = false;
+    inTuneSince = 0;
+    el.stage.classList.remove("hit");
+    refreshAnswer();
+    el.status.textContent = "Listen…";
+    playTone(midiToFreq(target));
+  }
+
+  function skip() {
+    if (target !== null && !solved) { attempts++; updateStreak(); }
+    newRound();
+  }
+
+  // ---------- start ----------
+  async function start() {
+    el.startBtn.disabled = true;
+    el.status.textContent = "Requesting microphone…";
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      await audioCtx.resume();
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,   // these all mangle a sustained tone
+          noiseSuppression: false,
+          autoGainControl: false
+        }
+      });
+      const src = audioCtx.createMediaStreamSource(micStream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 4096;       // ~85 ms window: long enough for low notes
+      buf = new Float32Array(analyser.fftSize);
+      src.connect(analyser);         // analyser is a sink here — no feedback loop
+    } catch (err) {
+      el.status.textContent = "Microphone unavailable: " + err.message;
+      el.startBtn.disabled = false;
+      return;
+    }
+
+    running = true;
+    el.startBtn.textContent = "Running";
+    el.replayBtn.disabled = false;
+    el.nextBtn.disabled = false;
+    el.meterWrap.hidden = !el.showMeter.checked;
+    updateStreak();
+    tick();
+    newRound();
+  }
+
+  el.startBtn.onclick = start;
+  el.replayBtn.onclick = () => { if (running) playTone(midiToFreq(target)); };
+  el.nextBtn.onclick = () => { if (running) skip(); };
+
+  document.addEventListener("keydown", e => {
+    if (!running || e.target.matches("input, select, textarea")) return;
+    if (e.code === "Space") { e.preventDefault(); playTone(midiToFreq(target)); }
+    if (e.key.toLowerCase() === "n") { e.preventDefault(); skip(); }
+  });
+
+  window.addEventListener("pagehide", () => {
+    if (rafId) cancelAnimationFrame(rafId);
+    if (micStream) micStream.getTracks().forEach(t => t.stop());
+  });
+})();
+</script>
+</body>
+</html>

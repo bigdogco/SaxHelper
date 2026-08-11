@@ -1,0 +1,7 @@
+# Local agent settings — machine-specific, not shared
+.claude/settings.local.json
+
+# OS cruft
+Thumbs.db
+desktop.ini
+.DS_Store
