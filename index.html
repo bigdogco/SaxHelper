@@ -53,6 +53,10 @@
   #answerSub { color: var(--dim); font-size: 14px; min-height: 21px; }
   #status { color: var(--dim); min-height: 22px; margin-top: 4px; }
   #streak { color: var(--dim); font-size: 13px; margin-top: 10px; }
+  #timer {
+    color: var(--dim); font-size: 13px; margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
 
   /* --- tuner meter --- */
   #meterWrap { margin-top: 14px; }
@@ -146,6 +150,7 @@
   </div>
 
   <div id="streak"></div>
+  <div id="timer"></div>
 
   <div class="row">
     <button id="startBtn" class="primary">Start</button>
@@ -285,6 +290,7 @@
     stage: $("stage"), answer: $("answer"), answerSub: $("answerSub"),
     status: $("status"), streak: $("streak"),
     meterWrap: $("meterWrap"), needle: $("needle"), zone: $("zone"), heard: $("heard"),
+    timer: $("timer"),
     startBtn: $("startBtn"), replayBtn: $("replayBtn"), nextBtn: $("nextBtn"),
     instrument: $("instrument"), rangeWarn: $("rangeWarn"), practiceSet: $("practiceSet"),
     lowNote: $("lowNote"), highNote: $("highNote"),
@@ -658,6 +664,7 @@
   function tick() {
     rafId = requestAnimationFrame(tick);
     if (!running) return;
+    updateTimer();
 
     analyser.getFloatTimeDomainData(buf);
     let freq = listening ? detectPitch(buf, audioCtx.sampleRate) : -1;
@@ -732,6 +739,26 @@
     if (el.autoNext.checked) setTimeout(() => { if (running && solved) newRound(); }, 2200);
   }
 
+  // ---------- session timer ----------
+  // Runs from Start to Stop, and starts over on the next Start. The final time
+  // is left on screen after stopping, so you can see what the session was.
+  let sessionStart = 0, shownSeconds = -1;
+
+  function formatDuration(totalSeconds) {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor(totalSeconds / 60) % 60;
+    const s = totalSeconds % 60;
+    const pad = n => String(n).padStart(2, "0");
+    return h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+  }
+
+  function updateTimer() {
+    const seconds = Math.floor((performance.now() - sessionStart) / 1000);
+    if (seconds === shownSeconds) return;    // only touch the DOM once a second
+    shownSeconds = seconds;
+    el.timer.textContent = `Practising for ${formatDuration(seconds)}`;
+  }
+
   function updateStreak() {
     el.streak.textContent = attempts
       ? `${hits} of ${attempts} matched${attempts ? ` · ${Math.round(hits / attempts * 100)}%` : ""}`
@@ -796,6 +823,9 @@
     el.replayBtn.disabled = false;
     el.nextBtn.disabled = false;
     el.meterWrap.hidden = !el.showMeter.checked;
+    sessionStart = performance.now();
+    shownSeconds = -1;
+    updateTimer();
     updateStreak();
     tick();
     newRound();
@@ -826,6 +856,14 @@
     el.answer.classList.add("masked");
     el.answerSub.textContent = "";
     el.status.textContent = "Stopped — the mic is off. Press Start to go again.";
+
+    // Freeze the clock where it stopped, and say so, so the number on screen
+    // can't be mistaken for one that's still counting.
+    updateTimer();
+    if (sessionStart) {
+      el.timer.textContent =
+        `Practised for ${formatDuration(Math.floor((performance.now() - sessionStart) / 1000))}`;
+    }
   }
 
   // A manual replay restarts the clock, so a repeat can't land on top of it.

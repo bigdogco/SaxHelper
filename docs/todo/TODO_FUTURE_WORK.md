@@ -24,7 +24,11 @@ pick from here when starting a new task.
 - **Attack analysis.** Report how long it takes to settle into the note, and
   whether the entry is from above or below. Scooping up to pitch is a habit
   worth seeing.
-- **Session history.** Persist results in `localStorage` and show a trend.
+- **Session history.** Persist results in `localStorage` and show a trend. The
+  session timer already gives a duration to record alongside the score.
+- **Publish it.** GitHub Pages from the repo root would serve it over HTTPS,
+  which is what Safari and phones require. Add a "Try it" link to the README
+  once that's live.
 
 ## App
 

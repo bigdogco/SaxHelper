@@ -29,6 +29,9 @@ numbers are in `docs/devlog/2026-08-11_1146_reference-drone-and-note-repeat.md`.
 - [x] Start button doubles as Stop, releasing the microphone rather than
       leaving it open for the life of the tab
       (`docs/devlog/2026-08-11_1228_start-stop-toggle.md`)
+- [x] `README.md`, ahead of possibly making the repo public
+- [x] Session timer, running from Start to Stop and resetting on the next Start
+      (`docs/devlog/2026-08-11_1424_readme-and-session-timer.md`)
 
 ## Still to do
 
