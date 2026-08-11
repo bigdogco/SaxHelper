@@ -31,11 +31,14 @@ jitter, hits landing on the attack transient instead of a settled note, or the
 octave being reported wrong down low.
 
 Tested on tenor against a hardware tuner: it tracks the horn closely, with none
-of those failure modes appearing. No smoothing or hold-time change needed. The
-planned mitigations — median filtering across frames, or requiring low
-frame-to-frame variance rather than mere tolerance — stay unimplemented, and are
-worth remembering if vibrato or subtone playing later proves troublesome. Voice
-input is still untested in anger.
+of those failure modes appearing. Voice was then checked the same way and also
+tracks accurately, despite vibrato and moving formants being the harder case.
+No smoothing or hold-time change needed for either.
+
+Both input paths are therefore confirmed against a reference. The planned
+mitigations — median filtering across frames, or requiring low frame-to-frame
+variance rather than mere tolerance — stay unimplemented, and are worth
+remembering if heavy vibrato or subtone playing later proves troublesome.
 
 ### Pitch tracker read consistently flat — *resolved 2026-08-11*
 The first autocorrelation implementation was 5–9 cents flat on harmonic-rich

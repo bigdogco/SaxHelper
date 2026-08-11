@@ -32,12 +32,12 @@ get confirmation when it locks in.
 - [x] Verify set selection over 900 recorded rounds
 - [x] Play through it with the actual tenor and see how the tracker holds up —
       confirmed against a hardware tuner, tracks closely, no changes needed
+- [x] Try it with the voice — also confirmed against the tuner
 
 ## Next up
 
 - [ ] Decide whether the default low end should move to concert A♭2, so the
       default range is fully playable on tenor
-- [ ] Try it with the voice, which is still untested
 - [ ] Decide whether the pearl sets should hide when the instrument is set to
       concert pitch, where the fingering names mean nothing
 
