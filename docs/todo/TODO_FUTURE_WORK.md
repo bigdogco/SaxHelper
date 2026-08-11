@@ -5,9 +5,8 @@ pick from here when starting a new task.
 
 ## Exercises
 
-- **Reference drone.** Hold a continuous tonic underneath so notes can be tuned
-  against a harmonic context instead of in isolation. Closest thing to how
-  intonation actually works in a band.
+- ~~**Reference drone.**~~ Built 2026-08-11, along with the note repeat option.
+  See `TODO_DRONE_AND_REPEAT.md`.
 - **Intervals.** Play two notes, play both back. The natural progression once
   single notes are reliable.
 - **Call and response phrases.** Three or four notes in sequence, matched in

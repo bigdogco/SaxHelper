@@ -191,6 +191,16 @@
         <label for="anyOctave" style="margin:0">Accept the right note in any octave (useful for singing)</label>
       </div>
       <div class="full check">
+        <input type="checkbox" id="repeatOn">
+        <label for="repeatOn" style="margin:0">Play the note again every
+          <span class="val" id="repeatVal">5</span> s until I match it</label>
+      </div>
+      <div class="full" id="repeatRow" hidden>
+        <!-- Floor of 3s: the note itself runs 1.6s, so anything tighter leaves
+             no room to answer in. Timed start-to-start. -->
+        <input type="range" id="repeatEvery" min="3" max="20" step="1" value="5">
+      </div>
+      <div class="full check">
         <input type="checkbox" id="autoNext" checked>
         <label for="autoNext" style="margin:0">Automatically move to the next note after a hit</label>
       </div>
@@ -206,6 +216,30 @@
   </details>
 </div>
 
+<div class="panel">
+  <div class="check" style="font-size:15px; color:var(--text)">
+    <input type="checkbox" id="droneOn">
+    <label for="droneOn" style="margin:0">Reference drone — hold a note underneath</label>
+  </div>
+  <div class="settings" style="margin-top:14px">
+    <div>
+      <label for="droneNote">Drone note</label>
+      <select id="droneNote"></select>
+    </div>
+    <div>
+      <label>Volume <span class="val" id="droneVolVal">35</span>%</label>
+      <input type="range" id="droneVol" min="0" max="100" step="5" value="35">
+    </div>
+    <p class="full hint" style="margin:2px 0 0">
+      Play against it and listen for the wobble — that pulsing <em>is</em> how far
+      out you are, and its speed is the difference in Hz. When it slows to nothing
+      and the two notes fuse, you're in tune. Trust that over the needle.<br>
+      <strong>Use headphones.</strong> On speakers the mic hears the drone too, and
+      the app has to ignore anything at that pitch to avoid scoring it as your answer.
+    </p>
+  </div>
+</div>
+
 <script>
 (() => {
   "use strict";
@@ -218,6 +252,7 @@
 
   const SELECT_LOW = 29, SELECT_HIGH = 84;   // F1 .. C6, concert
   const DEFAULT_LOW = 43, DEFAULT_HIGH = 48; // G2 .. C3, concert
+  const DEFAULT_DRONE = 46;                  // concert B♭2, under the pearl notes
 
   // How many semitones ABOVE the sounding pitch the written note sits.
   const INSTRUMENTS = [
@@ -255,14 +290,18 @@
     lowNote: $("lowNote"), highNote: $("highNote"),
     tol: $("tol"), tolVal: $("tolVal"), hold: $("hold"), holdVal: $("holdVal"),
     showMeter: $("showMeter"), anyOctave: $("anyOctave"),
-    autoNext: $("autoNext"), noRepeat: $("noRepeat")
+    autoNext: $("autoNext"), noRepeat: $("noRepeat"),
+    repeatOn: $("repeatOn"), repeatEvery: $("repeatEvery"),
+    repeatVal: $("repeatVal"), repeatRow: $("repeatRow"),
+    droneOn: $("droneOn"), droneNote: $("droneNote"),
+    droneVol: $("droneVol"), droneVolVal: $("droneVolVal")
   };
 
   // ---------- state ----------
   let audioCtx = null, analyser = null, buf = null, micStream = null;
   let running = false, target = null, prevTarget = null;
   let listening = false;          // false while the target note is sounding
-  let inTuneSince = 0, solved = false;
+  let inTuneSince = 0, solved = false, lastHeardAt = 0;
   let hits = 0, attempts = 0;
   let rafId = null;
 
@@ -281,11 +320,12 @@
   for (let m = SELECT_LOW; m <= SELECT_HIGH; m++) {
     el.lowNote.add(new Option("", m, false, m === DEFAULT_LOW));
     el.highNote.add(new Option("", m, false, m === DEFAULT_HIGH));
+    el.droneNote.add(new Option("", m, false, m === DEFAULT_DRONE));
   }
 
   function labelNoteOptions() {
     const transposing = offset() !== 0;
-    for (const select of [el.lowNote, el.highNote]) {
+    for (const select of [el.lowNote, el.highNote, el.droneNote]) {
       for (const option of select.options) {
         const m = +option.value;
         option.textContent = transposing
@@ -371,6 +411,13 @@
   drawZone();
 
   // ---------- audio out ----------
+  // The drone can be switched on before Start, so the context is made on demand.
+  function ensureCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
   // A reedy-ish tone: sawtooth softened by a lowpass, with a gentle envelope.
   function playTone(freq, duration = 1.6) {
     const t0 = audioCtx.currentTime;
@@ -400,6 +447,90 @@
     setTimeout(() => { if (running && !solved) listening = true; },
                (duration + 0.15) * 1000);
   }
+
+  // ---------- reference drone ----------
+  // Fundamental plus two soft harmonics. Deliberately not detuned against
+  // itself: every beat you hear should be you against the drone, nothing else.
+  const DRONE_PARTIALS = [[1, 1], [2, 0.3], [3, 0.15]];
+  let drone = null;
+
+  const droneFreq = () => midiToFreq(+el.droneNote.value);
+  const droneLevel = () => (+el.droneVol.value / 100) * 0.3;
+
+  function startDrone() {
+    stopDrone(0);
+    const ctx = ensureCtx();
+    const t0 = ctx.currentTime;
+    const gain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+    const freq = droneFreq();
+
+    filter.type = "lowpass";
+    filter.frequency.value = freq * 8;
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(droneLevel(), t0 + 0.4);
+    filter.connect(gain).connect(ctx.destination);
+
+    const oscillators = DRONE_PARTIALS.map(([mult, level]) => {
+      const osc = ctx.createOscillator();
+      const partial = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq * mult;
+      partial.gain.value = level;
+      osc.connect(partial).connect(filter);
+      osc.start(t0);
+      return osc;
+    });
+
+    drone = { gain, oscillators };
+  }
+
+  function stopDrone(fade = 0.3) {
+    if (!drone) return;
+    const { gain, oscillators } = drone;
+    drone = null;
+    const t0 = audioCtx.currentTime;
+    gain.gain.cancelScheduledValues(t0);
+    gain.gain.setValueAtTime(gain.gain.value, t0);
+    gain.gain.linearRampToValueAtTime(0, t0 + fade);
+    oscillators.forEach(osc => osc.stop(t0 + fade + 0.05));
+  }
+
+  el.droneOn.onchange = () => { el.droneOn.checked ? startDrone() : stopDrone(); };
+  el.droneNote.addEventListener("change", () => { if (drone) startDrone(); });
+  el.droneVol.oninput = () => {
+    el.droneVolVal.textContent = el.droneVol.value;
+    if (drone) drone.gain.gain.setTargetAtTime(droneLevel(), audioCtx.currentTime, 0.05);
+  };
+
+  // ---------- repeating the target ----------
+  let repeatTimer = null;
+
+  function clearRepeat() {
+    clearTimeout(repeatTimer);
+    repeatTimer = null;
+  }
+
+  function scheduleRepeat() {
+    clearRepeat();
+    if (!el.repeatOn.checked) return;
+    repeatTimer = setTimeout(() => {
+      if (!running || solved) return;
+      // Don't cut across an attempt in progress — wait for the next slot.
+      const busy = performance.now() - lastHeardAt < 700;
+      if (!busy) playTone(midiToFreq(target));
+      scheduleRepeat();
+    }, +el.repeatEvery.value * 1000);
+  }
+
+  el.repeatOn.onchange = () => {
+    el.repeatRow.hidden = !el.repeatOn.checked;
+    if (running && !solved) scheduleRepeat(); else clearRepeat();
+  };
+  el.repeatEvery.oninput = () => {
+    el.repeatVal.textContent = el.repeatEvery.value;
+    if (running && !solved) scheduleRepeat();
+  };
 
   function playVictory() {
     const t0 = audioCtx.currentTime;
@@ -510,12 +641,28 @@
     return cents;
   }
 
+  // On speakers the mic hears the drone, so anything sitting at the drone's own
+  // pitch is assumed to be bleed rather than an answer. Skipped when the drone
+  // IS the target — and playing the drone pitch when it isn't the target would
+  // be a wrong answer anyway, so nothing legitimate is thrown away.
+  const DRONE_BLEED_CENTS = 35;
+  function isDroneBleed(freq) {
+    if (!drone) return false;
+    const fromDrone = Math.abs(1200 * Math.log2(freq / droneFreq()));
+    if (fromDrone > DRONE_BLEED_CENTS) return false;
+    const droneIsTarget =
+      Math.abs(1200 * Math.log2(droneFreq() / midiToFreq(target))) <= DRONE_BLEED_CENTS;
+    return !droneIsTarget;
+  }
+
   function tick() {
     rafId = requestAnimationFrame(tick);
     if (!running) return;
 
     analyser.getFloatTimeDomainData(buf);
-    const freq = listening ? detectPitch(buf, audioCtx.sampleRate) : -1;
+    let freq = listening ? detectPitch(buf, audioCtx.sampleRate) : -1;
+    if (freq > 0 && isDroneBleed(freq)) freq = -1;
+    if (freq > 0) lastHeardAt = performance.now();
     const showMeter = el.showMeter.checked;
 
     if (freq <= 0) {
@@ -575,6 +722,7 @@
   function succeed() {
     solved = true;
     listening = false;
+    clearRepeat();
     hits++; attempts++;
     el.stage.classList.add("hit");
     refreshAnswer();
@@ -608,6 +756,7 @@
     refreshAnswer();
     el.status.textContent = "Listen…";
     playTone(midiToFreq(target));
+    scheduleRepeat();
   }
 
   function skip() {
@@ -620,7 +769,7 @@
     el.startBtn.disabled = true;
     el.status.textContent = "Requesting microphone…";
     try {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      ensureCtx();                     // may already exist, if the drone is on
       await audioCtx.resume();
       micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -650,18 +799,23 @@
     newRound();
   }
 
+  // A manual replay restarts the clock, so a repeat can't land on top of it.
+  const replay = () => { if (!running) return; playTone(midiToFreq(target)); scheduleRepeat(); };
+
   el.startBtn.onclick = start;
-  el.replayBtn.onclick = () => { if (running) playTone(midiToFreq(target)); };
+  el.replayBtn.onclick = replay;
   el.nextBtn.onclick = () => { if (running) skip(); };
 
   document.addEventListener("keydown", e => {
     if (!running || e.target.matches("input, select, textarea")) return;
-    if (e.code === "Space") { e.preventDefault(); playTone(midiToFreq(target)); }
+    if (e.code === "Space") { e.preventDefault(); replay(); }
     if (e.key.toLowerCase() === "n") { e.preventDefault(); skip(); }
   });
 
   window.addEventListener("pagehide", () => {
     if (rafId) cancelAnimationFrame(rafId);
+    clearRepeat();
+    if (drone) stopDrone(0);
     if (micStream) micStream.getTracks().forEach(t => t.stop());
   });
 })();

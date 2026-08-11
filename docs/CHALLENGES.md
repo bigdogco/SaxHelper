@@ -4,6 +4,34 @@ Running list of problems hit, and where they stand.
 
 ## Open
 
+### The meter is equal-tempered, but a drone teaches just intonation
+Tuning to a drone by ear pulls toward *pure* intervals — the ones where the
+beating stops. Those don't line up with equal temperament, which is what the
+cents meter measures against. A major third tuned pure sits about 14 cents flat
+of the equal-tempered one; a minor third about 16 cents sharp. Fifths are close
+enough not to matter, 2 cents.
+
+So on some intervals the meter will call the player flat while their ear is
+right. This is not a bug to patch, it's two definitions of "in tune", and the
+app currently only knows one of them.
+
+**Options when it matters:** show the pure-interval target alongside the
+equal-tempered one when the drone is on; widen or offset the tolerance zone for
+intervals with a large temperament difference; or simply document it and let
+the ear win. Needs a decision before the app claims to be right about intervals
+played against a drone.
+
+### Drone bleed without headphones
+On speakers the microphone hears the drone. Mitigated by discarding any pitch
+within 35 cents of the drone, unless the drone note is the target, and by
+recommending headphones in the UI.
+
+The guard has one hole by construction: when the drone note *is* the target it
+switches itself off, since otherwise the correct answer could never be accepted
+— and that is exactly the case where bleed would score a hit for playing
+nothing. It also cannot help if the room is loud enough that the drone swamps
+the horn in the microphone. Headphones remain the real fix.
+
 ### Range default sits one semitone below the horn
 The default range is concert G2–C3, which on tenor is written A3–D4 — and
 written A3 is a semitone below the tenor's lowest note, low B♭3. The app warns
