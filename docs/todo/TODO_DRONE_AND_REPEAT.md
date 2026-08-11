@@ -24,6 +24,12 @@ Two additions to the trainer:
 All verified against the running app with a retunable fake microphone; the
 numbers are in `docs/devlog/2026-08-11_1146_reference-drone-and-note-repeat.md`.
 
+## Also done
+
+- [x] Start button doubles as Stop, releasing the microphone rather than
+      leaving it open for the life of the tab
+      (`docs/devlog/2026-08-11_1228_start-stop-toggle.md`)
+
 ## Still to do
 
 - [ ] Play it on the horn with headphones and see whether the drone is actually

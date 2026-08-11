@@ -790,7 +790,9 @@
     }
 
     running = true;
-    el.startBtn.textContent = "Running";
+    el.startBtn.disabled = false;
+    el.startBtn.textContent = "Stop";
+    el.startBtn.classList.remove("primary");
     el.replayBtn.disabled = false;
     el.nextBtn.disabled = false;
     el.meterWrap.hidden = !el.showMeter.checked;
@@ -799,10 +801,37 @@
     newRound();
   }
 
+  // Releases the microphone, so the browser's recording indicator goes out.
+  // The drone is left alone — it's an independent control, and holding a
+  // reference pitch while not being scored is a reasonable thing to want.
+  function stop() {
+    running = false;
+    listening = false;
+    solved = false;
+    clearRepeat();
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+    analyser = null;
+
+    el.startBtn.textContent = "Start";
+    el.startBtn.classList.add("primary");
+    el.replayBtn.disabled = true;
+    el.nextBtn.disabled = true;
+    el.meterWrap.hidden = true;
+    el.needle.classList.remove("live", "on");
+    el.heard.textContent = "";
+    el.stage.classList.remove("hit");
+    target = null;                 // refreshAnswer() no-ops without one
+    el.answer.textContent = "?";
+    el.answer.classList.add("masked");
+    el.answerSub.textContent = "";
+    el.status.textContent = "Stopped — the mic is off. Press Start to go again.";
+  }
+
   // A manual replay restarts the clock, so a repeat can't land on top of it.
   const replay = () => { if (!running) return; playTone(midiToFreq(target)); scheduleRepeat(); };
 
-  el.startBtn.onclick = start;
+  el.startBtn.onclick = () => { running ? stop() : start(); };
   el.replayBtn.onclick = replay;
   el.nextBtn.onclick = () => { if (running) skip(); };
 
