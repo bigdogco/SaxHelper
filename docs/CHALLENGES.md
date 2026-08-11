@@ -4,18 +4,6 @@ Running list of problems hit, and where they stand.
 
 ## Open
 
-### Detection is unverified against a real instrument
-Everything so far was measured with synthesized tones. A real saxophone has
-breath noise, a slow and unstable attack, and a much richer harmonic spectrum;
-a sung note has vibrato and drifting formants. The tracker may behave
-differently on both.
-
-**Watch for:** jitter on the meter, hits registering during the attack transient
-rather than on a settled note, or the octave being reported wrong on low notes.
-**Mitigation if it bites:** raise the hold time, add median smoothing across
-frames, or require the pitch to be stable (low frame-to-frame variance) rather
-than merely inside the tolerance band.
-
 ### Range default sits one semitone below the horn
 The default range is concert G2–C3, which on tenor is written A3–D4 — and
 written A3 is a semitone below the tenor's lowest note, low B♭3. The app warns
@@ -35,6 +23,19 @@ folder over `http://localhost`. Could not be verified in the dev environment —
 see below.
 
 ## Resolved
+
+### Detection was unverified against a real instrument — *resolved 2026-08-11*
+Everything had been measured with synthesized tones, which have none of a real
+horn's breath noise, slow attack, or spectral richness. The worry was meter
+jitter, hits landing on the attack transient instead of a settled note, or the
+octave being reported wrong down low.
+
+Tested on tenor against a hardware tuner: it tracks the horn closely, with none
+of those failure modes appearing. No smoothing or hold-time change needed. The
+planned mitigations — median filtering across frames, or requiring low
+frame-to-frame variance rather than mere tolerance — stay unimplemented, and are
+worth remembering if vibrato or subtone playing later proves troublesome. Voice
+input is still untested in anger.
 
 ### Pitch tracker read consistently flat — *resolved 2026-08-11*
 The first autocorrelation implementation was 5–9 cents flat on harmonic-rich

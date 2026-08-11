@@ -162,6 +162,10 @@
         <label for="instrument">Instrument (notes below are shown as you finger them)</label>
         <select id="instrument"></select>
       </div>
+      <div class="full">
+        <label for="practiceSet">Which notes</label>
+        <select id="practiceSet"></select>
+      </div>
       <div>
         <label for="lowNote">Lowest note</label>
         <select id="lowNote"></select>
@@ -228,13 +232,26 @@
   // Every saxophone shares the same written range, low B♭3 to high F#6.
   const SAX_WRITTEN_LOW = 58, SAX_WRITTEN_HIGH = 90;
 
+  // The six mother-of-pearl touchpieces, in WRITTEN pitch: left hand B A G,
+  // right hand F E D. No palm keys, no side keys, no octave key — the first
+  // six notes a beginner owns. Written D4 E4 F4 G4 A4 B4.
+  const PEARLS_LEFT  = [67, 69, 71];        // G4 A4 B4
+  const PEARLS_RIGHT = [62, 64, 65];        // D4 E4 F4
+  const PRACTICE_SETS = [
+    { id: "range",  label: "Full range — use the note pickers below", notes: null },
+    { id: "pearls", label: "Pearl keys, both hands — D E F G A B (6 notes)",
+      notes: [...PEARLS_RIGHT, ...PEARLS_LEFT] },
+    { id: "pearls-left",  label: "Left-hand pearls only — G A B (3 notes)", notes: PEARLS_LEFT },
+    { id: "pearls-right", label: "Right-hand pearls only — D E F (3 notes)", notes: PEARLS_RIGHT }
+  ];
+
   const $ = id => document.getElementById(id);
   const el = {
     stage: $("stage"), answer: $("answer"), answerSub: $("answerSub"),
     status: $("status"), streak: $("streak"),
     meterWrap: $("meterWrap"), needle: $("needle"), zone: $("zone"), heard: $("heard"),
     startBtn: $("startBtn"), replayBtn: $("replayBtn"), nextBtn: $("nextBtn"),
-    instrument: $("instrument"), rangeWarn: $("rangeWarn"),
+    instrument: $("instrument"), rangeWarn: $("rangeWarn"), practiceSet: $("practiceSet"),
     lowNote: $("lowNote"), highNote: $("highNote"),
     tol: $("tol"), tolVal: $("tolVal"), hold: $("hold"), holdVal: $("holdVal"),
     showMeter: $("showMeter"), anyOctave: $("anyOctave"),
@@ -278,7 +295,39 @@
     }
   }
 
+  // ---------- practice sets ----------
+  PRACTICE_SETS.forEach(s => el.practiceSet.add(new Option(s.label, s.id)));
+
+  const activeSet = () => PRACTICE_SETS.find(s => s.id === el.practiceSet.value);
+
+  // The candidate notes for this round, as concert MIDI.
+  function candidateNotes() {
+    const set = activeSet();
+    if (set.notes) return set.notes.map(written => written - offset());
+    const lo = +el.lowNote.value, hi = +el.highNote.value;
+    return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
+  }
+
+  function applyPracticeSet() {
+    const usesRange = !activeSet().notes;
+    el.lowNote.disabled = el.highNote.disabled = !usesRange;
+    el.lowNote.parentElement.style.opacity = el.highNote.parentElement.style.opacity =
+      usesRange ? "" : ".45";
+    checkRange();
+  }
+
   function checkRange() {
+    const set = activeSet();
+    if (set.notes) {
+      // A fixed set is defined by fingering, so it is always playable. Just
+      // say what it sounds like, since that is what the app will play.
+      const sounding = set.notes.map(w => midiToName(w - offset())).join(" ");
+      el.rangeWarn.textContent = offset()
+        ? `${set.notes.map(midiToName).join(" ")} as you finger them, sounding ${sounding} concert.`
+        : `Note that these are sax fingering names — on a non-transposing instrument they are just ${sounding}.`;
+      el.rangeWarn.style.color = "";
+      return;
+    }
     const lo = writtenMidi(+el.lowNote.value), hi = writtenMidi(+el.highNote.value);
     const isSax = el.instrument.value.includes("-");
     let msg = "";
@@ -302,9 +351,10 @@
   };
   el.lowNote.onchange = () => keepRangeSane("low");
   el.highNote.onchange = () => keepRangeSane("high");
+  el.practiceSet.onchange = applyPracticeSet;
   el.instrument.onchange = () => { labelNoteOptions(); checkRange(); refreshAnswer(); };
   labelNoteOptions();
-  checkRange();
+  applyPracticeSet();
 
   // ---------- settings wiring ----------
   const tolerance = () => +el.tol.value;
@@ -541,13 +591,12 @@
   }
 
   function pickTarget() {
-    const lo = +el.lowNote.value, hi = +el.highNote.value;
-    const span = hi - lo + 1;
-    let m = lo + Math.floor(Math.random() * span);
-    if (el.noRepeat.checked && span > 1 && m === prevTarget) {
-      m = lo + ((m - lo + 1 + Math.floor(Math.random() * (span - 1))) % span);
+    let pool = candidateNotes();
+    // Draw from everything except the last note, rather than re-rolling.
+    if (el.noRepeat.checked && pool.length > 1 && pool.includes(prevTarget)) {
+      pool = pool.filter(m => m !== prevTarget);
     }
-    return m;
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
   function newRound() {

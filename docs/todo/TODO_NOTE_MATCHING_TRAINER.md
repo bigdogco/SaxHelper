@@ -28,12 +28,17 @@ get confirmation when it locks in.
 - [x] Warn when the selected range falls outside the horn's playable range
 - [x] Graceful message when mic permission is denied
 - [x] Verify the full loop end-to-end with a synthetic microphone
+- [x] Restrict practice to the six pearl keys, plus a set for each hand
+- [x] Verify set selection over 900 recorded rounds
+- [x] Play through it with the actual tenor and see how the tracker holds up —
+      confirmed against a hardware tuner, tracks closely, no changes needed
 
 ## Next up
 
-- [ ] Play through it with the actual tenor and see how the tracker holds up
-      (see `docs/CHALLENGES.md` — this is the main open risk)
 - [ ] Decide whether the default low end should move to concert A♭2, so the
       default range is fully playable on tenor
+- [ ] Try it with the voice, which is still untested
+- [ ] Decide whether the pearl sets should hide when the instrument is set to
+      concert pitch, where the fingering names mean nothing
 
 Anything beyond that goes in `TODO_FUTURE_WORK.md`.
