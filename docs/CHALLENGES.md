@@ -32,15 +32,27 @@ switches itself off, since otherwise the correct answer could never be accepted
 nothing. It also cannot help if the room is loud enough that the drone swamps
 the horn in the microphone. Headphones remain the real fix.
 
-### Octave numbering differs from sax-specific apps
-We label octaves with scientific pitch notation — middle C is C4, A4 is 440 Hz —
-which is the convention tuners use. Sax-specific apps often number from the
-horn's own low B♭ instead, putting the same written note two octaves lower, and
-Yamaha-style numbering puts it one lower. A note we call F5 shows as F3 on at
-least one phone tuner, at an identical 311 Hz — same pitch, same reading, three
-different names for the octave.
+### Note names can differ from other apps by an octave, twice over
+A phone tuner called a note F3 where we called it F5, on an identical 311 Hz
+reading. Two independent one-octave effects, stacking:
 
-Nothing is wrong, and scientific notation is the right default.
+**1. Which B♭ transposition.** There are two, and they differ by an octave:
+
+| Instrument | Written is | Concert E♭4 reads as |
+| --- | --- | --- |
+| B♭ tenor sax | concert + 14, a major 9th | **F5** — ours |
+| B♭ clarinet, trumpet, soprano sax | concert + 2, a whole tone | F4 |
+
+An app offering a generic "B♭" almost certainly means the +2 kind. That is
+correct for a trumpet and an octave wrong for a tenor, whose part is written a
+major ninth above what sounds.
+
+**2. Octave numbering.** We use scientific pitch notation — middle C is C4, A4 is
+440 Hz — as tuners and acousticians do. Yamaha and Roland style calls middle C
+C3, one lower. That turns the F4 above into F3.
+
+Nothing is wrong, and both of our choices are the right defaults: tenor is a
++14 instrument, and scientific notation is the tuner convention.
 
 **Diagnostic worth remembering:** compare hertz before believing a note-name
 disagreement between apps. Matching frequencies mean the argument is only about
