@@ -44,3 +44,9 @@ All verified through the running UI; the results table is in
       drone grid is actually quicker to use than the dropdown was
 - [ ] Decide whether the tuner should offer a fixed-note mode, where you pick
       the note rather than it tracking the nearest one
+
+## Added after the fact
+
+- [x] Tuner shows concert and fingered pitch side by side, concert first
+- [x] Vertical pitch ruler below the needle, C2–C6, marker at the true pitch
+      rather than snapped to the nearest note

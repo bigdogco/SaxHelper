@@ -32,6 +32,24 @@ switches itself off, since otherwise the correct answer could never be accepted
 nothing. It also cannot help if the room is loud enough that the drone swamps
 the horn in the microphone. Headphones remain the real fix.
 
+### Octave numbering differs from sax-specific apps
+We label octaves with scientific pitch notation — middle C is C4, A4 is 440 Hz —
+which is the convention tuners use. Sax-specific apps often number from the
+horn's own low B♭ instead, putting the same written note two octaves lower, and
+Yamaha-style numbering puts it one lower. A note we call F5 shows as F3 on at
+least one phone tuner, at an identical 311 Hz — same pitch, same reading, three
+different names for the octave.
+
+Nothing is wrong, and scientific notation is the right default.
+
+**Diagnostic worth remembering:** compare hertz before believing a note-name
+disagreement between apps. Matching frequencies mean the argument is only about
+labels.
+
+**If it becomes annoying:** an octave-numbering setting — scientific, Yamaha, or
+sax-relative — affecting note labels only, leaving detection and ruler positions
+untouched.
+
 ### Range default sits one semitone below the horn
 The default range is concert G2–C3, which on tenor is written A3–D4 — and
 written A3 is a semitone below the tenor's lowest note, low B♭3. The app warns

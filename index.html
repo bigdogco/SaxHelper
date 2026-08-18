@@ -184,6 +184,50 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* --- pitch ruler --- */
+  #ruler {
+    position: relative; height: 620px;
+    border: 1px solid var(--line); border-radius: 8px;
+    background: #10131a; overflow: hidden;
+  }
+  /* Inset, so the labels on the end lines aren't clipped by the border. */
+  #rulerInner { position: absolute; left: 0; right: 0; top: 11px; bottom: 11px; }
+  #rulerTicks { position: absolute; inset: 0; }
+  .tick {
+    position: absolute; left: 0; right: 0; height: 0;
+    border-top: 1px solid rgba(255,255,255,.05);
+  }
+  .tick.natural { border-top-color: rgba(255,255,255,.11); }
+  .tick.octave  { border-top-color: rgba(255,255,255,.26); }
+  .tickLabel {
+    position: absolute; left: 8px; transform: translateY(-50%);
+    font-size: 10px; line-height: 1; color: var(--dim);
+  }
+  .tick.octave .tickLabel { color: var(--text); font-weight: 600; font-size: 11px; }
+  #rulerMarker {
+    position: absolute; left: 0; right: 0; top: 50%;
+    transition: top .08s linear;
+  }
+  #rulerMarker[hidden] { display: none; }
+  .markerLine {
+    position: absolute; left: 0; right: 0; top: 0; height: 2px;
+    background: var(--accent);
+  }
+  .markerPill {
+    position: absolute; right: 8px; top: 0; transform: translateY(-50%);
+    display: flex; align-items: baseline; gap: 6px; white-space: nowrap;
+    background: var(--accent); color: #07242f; font-weight: 600;
+    font-size: 12px; padding: 3px 10px; border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+  }
+  #markerCents { font-weight: 400; opacity: .75; }
+  #rulerMarker.on .markerLine { background: var(--good); }
+  #rulerMarker.on .markerPill { background: var(--good); color: #06301b; }
+  #rulerNote {
+    color: var(--dim); font-size: 13px; margin-top: 8px; text-align: center;
+    min-height: 20px; font-variant-numeric: tabular-nums;
+  }
+
   /* --- drone tab --- */
   #droneNow { color: var(--dim); font-size: 13px; text-align: center; margin-top: 12px; }
   .volLabel { display: block; color: var(--dim); font-size: 12px; margin-bottom: 4px; }
@@ -357,6 +401,22 @@
   </div>
 </div>
 
+<div class="panel" id="rulerPanel">
+  <div class="keysTitle">Where you are — C2 to C6, concert pitch</div>
+  <div id="ruler">
+    <div id="rulerInner">
+      <div id="rulerTicks"></div>
+      <div id="rulerMarker" hidden>
+        <div class="markerLine"></div>
+        <div class="markerPill">
+          <span id="markerNote">—</span><span id="markerCents"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="rulerNote">Start the tuner and play.</div>
+</div>
+
 <div class="panel">
   <p class="hint" style="margin:0">
     Concert pitch on the left — what's actually sounding — with the fingering beside
@@ -454,6 +514,8 @@
     tunerNote: $("tunerNote"), tunerSub: $("tunerSub"), tunerNeedle: $("tunerNeedle"),
     tunerConcert: $("tunerConcert"), tunerFingered: $("tunerFingered"),
     tunerFingeredPart: $("tunerFingeredPart"),
+    rulerTicks: $("rulerTicks"), rulerMarker: $("rulerMarker"),
+    markerNote: $("markerNote"), markerCents: $("markerCents"), rulerNote: $("rulerNote"),
     tunerHz: $("tunerHz"), tunerBtn: $("tunerBtn"),
     droneBigBtn: $("droneBigBtn"), droneNow: $("droneNow"),
     droneVol2: $("droneVol2"), droneKeys: $("droneKeys")
@@ -1027,6 +1089,7 @@
     el.tunerSub.textContent = "";
     el.tunerNeedle.classList.remove("live", "on");
     el.tunerHz.textContent = "Stopped — the mic is off.";
+    updateRuler(-1);
   }
 
   // No drone-bleed filtering here, unlike the trainer: on the tuner, reading
@@ -1040,6 +1103,7 @@
         el.tunerNote.classList.remove("on");
         el.tunerNeedle.classList.remove("live", "on");
         el.tunerHz.textContent = "Play a note.";
+        updateRuler(-1);
       }
       return;
     }
@@ -1065,9 +1129,57 @@
     el.tunerNeedle.classList.toggle("on", inTune);
     el.tunerHz.textContent =
       `${heard.toFixed(1)} Hz · ${cents >= 0 ? "+" : ""}${cents.toFixed(0)} cents`;
+    updateRuler(heard, nearest, cents, inTune);
   }
 
   el.tunerBtn.onclick = () => { tunerRunning ? stopTuner() : startTuner(); };
+
+  // ---------- pitch ruler ----------
+  // A vertical scale of the range anyone actually plays or sings, with a
+  // marker at the true pitch rather than snapped to the nearest note — so you
+  // can see where you sit between two notes, and spot an octave error at once.
+  const RULER_LOW = 36, RULER_HIGH = 84;             // C2 .. C6, concert
+  const NATURALS = [0, 2, 4, 5, 7, 9, 11];
+
+  const rulerPercent = midi => (RULER_HIGH - midi) / (RULER_HIGH - RULER_LOW) * 100;
+
+  function buildRuler() {
+    el.rulerTicks.textContent = "";
+    for (let m = RULER_LOW; m <= RULER_HIGH; m++) {
+      const pitchClass = m % 12;
+      const natural = NATURALS.includes(pitchClass);
+      const tick = document.createElement("div");
+      tick.className = "tick" + (natural ? " natural" : "") + (pitchClass === 0 ? " octave" : "");
+      tick.style.top = rulerPercent(m) + "%";
+      if (natural) {
+        const label = document.createElement("span");
+        label.className = "tickLabel";
+        label.textContent = midiToName(m);
+        tick.append(label);
+      }
+      el.rulerTicks.append(tick);
+    }
+  }
+
+  function updateRuler(freq, nearest, cents, inTune) {
+    if (freq <= 0) {
+      el.rulerMarker.hidden = true;
+      el.rulerNote.textContent = tunerRunning ? "Play a note." : "Start the tuner and play.";
+      return;
+    }
+    const exact = freqToMidiFloat(freq);
+    const clamped = Math.max(RULER_LOW, Math.min(RULER_HIGH, exact));
+    el.rulerMarker.hidden = false;
+    el.rulerMarker.style.top = rulerPercent(clamped) + "%";
+    el.rulerMarker.classList.toggle("on", inTune);
+    el.markerNote.textContent =
+      midiToName(nearest) + (offset() ? ` · ${writtenName(nearest)}` : "");
+    el.markerCents.textContent = `${cents >= 0 ? "+" : ""}${cents.toFixed(0)}`;
+
+    const beyond = exact < RULER_LOW ? " — below the ruler"
+                 : exact > RULER_HIGH ? " — above the ruler" : "";
+    el.rulerNote.textContent = `${freq.toFixed(1)} Hz${beyond}`;
+  }
 
   // ---------- drone screen ----------
   // The trainer's drone panel and the drone tab are two views of one drone.
@@ -1144,6 +1256,7 @@
   tabButtons.forEach(btn => { btn.onclick = () => showTab(btn.dataset.tab); });
 
   buildDroneKeys();
+  buildRuler();
 
   // ---------- start ----------
   async function start() {

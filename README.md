@@ -26,8 +26,11 @@ python3 -m http.server 8000
 ## Three tabs
 
 - **Trainer** — the note-matching exercise below.
-- **Tuner** — a plain chromatic tuner. Play anything, see what it is and how far
-  out, named as you finger it. Green within 10 cents.
+- **Tuner** — a plain chromatic tuner. Play anything and see what it is and how
+  far out, in concert pitch with the fingering beside it. Green within 10 cents.
+  Below the needle is a vertical ruler of every semitone from C2 to C6, with a
+  marker at your actual pitch — the needle tells you how far off a note you are,
+  the ruler tells you which note you're on, so octave errors are obvious.
 - **Drone** — one button per note of the horn, low B♭ to high F#, named as you
   finger them. Tap to sound, tap again to stop.
 

@@ -37,3 +37,6 @@ pick from here when starting a new task.
 - Metronome / pacing, and an auto-advance mode with a fixed time per note
 - Mobile layout and screen-wake handling
 - Offline install (service worker, PWA manifest)
+- **Octave-numbering setting.** Scientific, Yamaha, or numbered from the horn's
+  low B♭, so labels can match whatever other app is on the music stand. Display
+  only. See `docs/CHALLENGES.md`.
