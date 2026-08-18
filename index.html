@@ -127,11 +127,93 @@
     background: #262b34; border: 1px solid var(--line); border-bottom-width: 2px;
     border-radius: 4px; padding: 1px 5px; font: 12px/1 ui-monospace, monospace;
   }
+  /* --- tabs --- */
+  #tabs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .tab {
+    font: inherit; padding: 8px 18px; border-radius: 999px;
+    border: 1px solid var(--line); background: transparent; color: var(--dim);
+    cursor: pointer;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { background: var(--panel); color: var(--text); border-color: #3a424f; }
+  .tabPanel {
+    width: 100%; max-width: 520px;
+    display: flex; flex-direction: column; align-items: center; gap: 20px;
+  }
+  .tabPanel[hidden] { display: none; }
+
+  /* --- tuner --- */
+  #tunerPanel { text-align: center; }
+  #tunerNote { display: flex; justify-content: center; gap: 32px; min-height: 86px; }
+  .tunerPart[hidden] { display: none; }
+  .tunerBig {
+    font-size: 58px; font-weight: 600; line-height: 1.1;
+    letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+  }
+  .tunerTag {
+    font-size: 10px; color: var(--dim); letter-spacing: .08em;
+    text-transform: uppercase; margin-top: 2px;
+  }
+  #tunerNote.masked .tunerBig { color: var(--dim); }
+  #tunerNote.on .tunerBig { color: var(--good); }
+  #tunerSub { color: var(--dim); font-size: 14px; min-height: 21px; }
+  #tunerMeter {
+    position: relative; height: 44px; margin-top: 14px;
+    border: 1px solid var(--line); border-radius: 8px;
+    background: #10131a; overflow: hidden;
+  }
+  #tunerMeter .zone {
+    position: absolute; top: 0; bottom: 0; left: 40%; width: 20%;
+    background: rgba(61,220,132,.13);
+    border-left: 1px solid rgba(61,220,132,.3);
+    border-right: 1px solid rgba(61,220,132,.3);
+  }
+  #tunerMeter .center {
+    position: absolute; left: 50%; top: 0; bottom: 0; width: 2px;
+    margin-left: -1px; background: var(--line);
+  }
+  #tunerNeedle {
+    position: absolute; left: 50%; top: 5px; bottom: 5px; width: 4px;
+    margin-left: -2px; border-radius: 2px; background: var(--accent);
+    transition: left .06s linear, background-color .1s; opacity: 0;
+  }
+  #tunerNeedle.live { opacity: 1; }
+  #tunerNeedle.on { background: var(--good); }
+  #tunerHz {
+    color: var(--dim); font-size: 13px; margin-top: 8px; min-height: 20px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* --- drone tab --- */
+  #droneNow { color: var(--dim); font-size: 13px; text-align: center; margin-top: 12px; }
+  .volLabel { display: block; color: var(--dim); font-size: 12px; margin-bottom: 4px; }
+  #droneVol2 { width: 100%; }
+  .keysTitle { color: var(--dim); font-size: 12px; margin-bottom: 10px; }
+  .keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 8px; }
+  .key {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    font: inherit; padding: 10px 4px; border-radius: 8px;
+    border: 1px solid var(--line); background: #262b34; color: var(--text);
+    cursor: pointer;
+  }
+  .key:hover { background: #2f3540; }
+  .key.on { background: var(--good); border-color: var(--good); color: #06301b; font-weight: 600; }
+  .keyName { font-size: 15px; }
+  .keySub { font-size: 11px; color: var(--dim); }
+  .key.on .keySub { color: #0a4527; }
 </style>
 </head>
 <body>
 
-<h1>Sax Helper — Note Matching</h1>
+<h1>Sax Helper</h1>
+
+<nav id="tabs">
+  <button class="tab active" data-tab="trainer">Trainer</button>
+  <button class="tab" data-tab="tuner">Tuner</button>
+  <button class="tab" data-tab="drone">Drone</button>
+</nav>
+
+<section class="tabPanel" id="panel-trainer">
 <p class="sub">Hear a note, then play or sing it back. Hold it steady until it locks in.</p>
 
 <div class="panel" id="stage">
@@ -244,6 +326,74 @@
     </p>
   </div>
 </div>
+</section>
+
+<section class="tabPanel" id="panel-tuner" hidden>
+<p class="sub">A plain chromatic tuner. Play anything and it tells you what it is and how far out.</p>
+
+<div class="panel" id="tunerPanel">
+  <div id="tunerNote" class="masked">
+    <div class="tunerPart">
+      <div class="tunerBig" id="tunerConcert">—</div>
+      <div class="tunerTag">concert</div>
+    </div>
+    <div class="tunerPart" id="tunerFingeredPart">
+      <div class="tunerBig" id="tunerFingered">—</div>
+      <div class="tunerTag">as you finger it</div>
+    </div>
+  </div>
+  <div id="tunerSub"></div>
+
+  <div id="tunerMeter">
+    <div class="zone"></div>
+    <div class="center"></div>
+    <div id="tunerNeedle"></div>
+  </div>
+  <div class="meterLabels"><span>50c flat</span><span>in tune</span><span>50c sharp</span></div>
+  <div id="tunerHz">Press Start to enable your microphone.</div>
+
+  <div class="row">
+    <button id="tunerBtn" class="primary">Start tuner</button>
+  </div>
+</div>
+
+<div class="panel">
+  <p class="hint" style="margin:0">
+    Concert pitch on the left — what's actually sounding — with the fingering beside
+    it, following the instrument set on the Trainer tab. On a non-transposing
+    instrument the second column drops away. Green means within 10 cents.<br><br>
+    The drone is <em>not</em> filtered out here — on the tuner you may well want to
+    read it, since tuning the horn to a drone is a perfectly good thing to do. On
+    speakers that also means the tuner may show the drone rather than you.
+  </p>
+</div>
+</section>
+
+<section class="tabPanel" id="panel-drone" hidden>
+<p class="sub">Hold a note under your playing and tune to it by ear. Tap a key to sound it.</p>
+
+<div class="panel">
+  <div class="row" style="margin-top:0">
+    <button id="droneBigBtn" class="primary">Start drone</button>
+  </div>
+  <div id="droneNow"></div>
+  <div style="margin-top:16px">
+    <label class="volLabel" for="droneVol2">Volume</label>
+    <input type="range" id="droneVol2" min="0" max="100" step="5" value="35">
+  </div>
+</div>
+
+<div class="panel">
+  <div class="keysTitle">Tap a note — named as you finger it</div>
+  <div id="droneKeys" class="keys"></div>
+  <p class="hint" style="margin:14px 0 0">
+    Low B♭ up to high F#, the horn's full written range. Tap the sounding note again
+    to stop it.<br>
+    <strong>Use headphones.</strong> On speakers the mic hears the drone, and the
+    trainer has to discard anything at that pitch to avoid scoring it as your answer.
+  </p>
+</div>
+</section>
 
 <script>
 (() => {
@@ -300,7 +450,13 @@
     repeatOn: $("repeatOn"), repeatEvery: $("repeatEvery"),
     repeatVal: $("repeatVal"), repeatRow: $("repeatRow"),
     droneOn: $("droneOn"), droneNote: $("droneNote"),
-    droneVol: $("droneVol"), droneVolVal: $("droneVolVal")
+    droneVol: $("droneVol"), droneVolVal: $("droneVolVal"),
+    tunerNote: $("tunerNote"), tunerSub: $("tunerSub"), tunerNeedle: $("tunerNeedle"),
+    tunerConcert: $("tunerConcert"), tunerFingered: $("tunerFingered"),
+    tunerFingeredPart: $("tunerFingeredPart"),
+    tunerHz: $("tunerHz"), tunerBtn: $("tunerBtn"),
+    droneBigBtn: $("droneBigBtn"), droneNow: $("droneNow"),
+    droneVol2: $("droneVol2"), droneKeys: $("droneKeys")
   };
 
   // ---------- state ----------
@@ -398,7 +554,9 @@
   el.lowNote.onchange = () => keepRangeSane("low");
   el.highNote.onchange = () => keepRangeSane("high");
   el.practiceSet.onchange = applyPracticeSet;
-  el.instrument.onchange = () => { labelNoteOptions(); checkRange(); refreshAnswer(); };
+  el.instrument.onchange = () => {
+    labelNoteOptions(); checkRange(); refreshAnswer(); buildDroneKeys();
+  };
   labelNoteOptions();
   applyPracticeSet();
 
@@ -661,13 +819,20 @@
     return !droneIsTarget;
   }
 
-  function tick() {
-    rafId = requestAnimationFrame(tick);
-    if (!running) return;
-    updateTimer();
-
+  // One loop drives whichever screens are live. The detector runs once per
+  // frame and both the trainer and the tuner read the same result.
+  function frame() {
+    rafId = requestAnimationFrame(frame);
+    if (!analyser) return;
     analyser.getFloatTimeDomainData(buf);
-    let freq = listening ? detectPitch(buf, audioCtx.sampleRate) : -1;
+    const heard = detectPitch(buf, audioCtx.sampleRate);
+    if (running) trainerFrame(heard);
+    if (tunerRunning) tunerFrame(heard);
+  }
+
+  function trainerFrame(heard) {
+    updateTimer();
+    let freq = listening ? heard : -1;
     if (freq > 0 && isDroneBleed(freq)) freq = -1;
     if (freq > 0) lastHeardAt = performance.now();
     const showMeter = el.showMeter.checked;
@@ -791,25 +956,201 @@
     newRound();
   }
 
-  // ---------- start ----------
-  async function start() {
-    el.startBtn.disabled = true;
-    el.status.textContent = "Requesting microphone…";
-    try {
-      ensureCtx();                     // may already exist, if the drone is on
-      await audioCtx.resume();
+  // ---------- microphone sharing ----------
+  // The trainer and the tuner both listen. Whoever needs the mic asks for it,
+  // and it is released only once nobody is using it — so switching tabs
+  // mid-session never takes the microphone away from the other screen.
+  const micUsers = new Set();
+
+  async function acquireMic(user) {
+    ensureCtx();                       // may already exist, if the drone is on
+    await audioCtx.resume();
+    if (!analyser) {
       micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: false,   // these all mangle a sustained tone
+          echoCancellation: false,     // these all mangle a sustained tone
           noiseSuppression: false,
           autoGainControl: false
         }
       });
       const src = audioCtx.createMediaStreamSource(micStream);
       analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 4096;       // ~85 ms window: long enough for low notes
+      analyser.fftSize = 4096;         // ~85 ms window: long enough for low notes
       buf = new Float32Array(analyser.fftSize);
-      src.connect(analyser);         // analyser is a sink here — no feedback loop
+      src.connect(analyser);           // analyser is a sink here — no feedback loop
+    }
+    micUsers.add(user);
+    if (!rafId) frame();
+  }
+
+  function releaseMic(user) {
+    micUsers.delete(user);
+    if (micUsers.size) return;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+    analyser = null;
+  }
+
+  // ---------- tuner ----------
+  const TUNER_RANGE = 50;              // cents shown edge-to-edge each way
+  const TUNER_IN_TUNE = 10;            // within this counts as in tune
+  const TUNER_HOLD_MS = 600;           // keep the last reading up this long
+  let tunerRunning = false, tunerQuietSince = 0;
+
+  async function startTuner() {
+    el.tunerBtn.disabled = true;
+    el.tunerHz.textContent = "Requesting microphone…";
+    try {
+      await acquireMic("tuner");
+    } catch (err) {
+      el.tunerHz.textContent = "Microphone unavailable: " + err.message;
+      el.tunerBtn.disabled = false;
+      return;
+    }
+    tunerRunning = true;
+    tunerQuietSince = 0;
+    el.tunerBtn.disabled = false;
+    el.tunerBtn.textContent = "Stop";
+    el.tunerBtn.classList.remove("primary");
+    el.tunerHz.textContent = "Play a note.";
+  }
+
+  function stopTuner() {
+    tunerRunning = false;
+    releaseMic("tuner");
+    el.tunerBtn.textContent = "Start tuner";
+    el.tunerBtn.classList.add("primary");
+    el.tunerConcert.textContent = "—";
+    el.tunerFingered.textContent = "—";
+    el.tunerNote.classList.add("masked");
+    el.tunerNote.classList.remove("on");
+    el.tunerSub.textContent = "";
+    el.tunerNeedle.classList.remove("live", "on");
+    el.tunerHz.textContent = "Stopped — the mic is off.";
+  }
+
+  // No drone-bleed filtering here, unlike the trainer: on the tuner, reading
+  // the drone is a legitimate thing to want.
+  function tunerFrame(heard) {
+    if (heard <= 0) {
+      // Hold the last reading briefly, so it does not blink between phrases.
+      if (!tunerQuietSince) tunerQuietSince = performance.now();
+      if (performance.now() - tunerQuietSince > TUNER_HOLD_MS) {
+        el.tunerNote.classList.add("masked");
+        el.tunerNote.classList.remove("on");
+        el.tunerNeedle.classList.remove("live", "on");
+        el.tunerHz.textContent = "Play a note.";
+      }
+      return;
+    }
+    tunerQuietSince = 0;
+
+    const nearest = Math.round(freqToMidiFloat(heard));
+    const cents = 1200 * Math.log2(heard / midiToFreq(nearest));
+    const inTune = Math.abs(cents) <= TUNER_IN_TUNE;
+
+    // Concert first: it's the pitch actually in the air. The fingered name
+    // sits beside it, and is dropped entirely on a non-transposing instrument
+    // where the two would just be the same note printed twice.
+    el.tunerConcert.textContent = midiToName(nearest);
+    el.tunerFingered.textContent = writtenName(nearest);
+    el.tunerFingeredPart.hidden = !offset();
+    el.tunerNote.classList.remove("masked");
+    el.tunerNote.classList.toggle("on", inTune);
+    el.tunerSub.textContent = `${midiToFreq(nearest).toFixed(1)} Hz when in tune`;
+
+    const clamped = Math.max(-TUNER_RANGE, Math.min(TUNER_RANGE, cents));
+    el.tunerNeedle.style.left = (50 + (clamped / TUNER_RANGE) * 50) + "%";
+    el.tunerNeedle.classList.add("live");
+    el.tunerNeedle.classList.toggle("on", inTune);
+    el.tunerHz.textContent =
+      `${heard.toFixed(1)} Hz · ${cents >= 0 ? "+" : ""}${cents.toFixed(0)} cents`;
+  }
+
+  el.tunerBtn.onclick = () => { tunerRunning ? stopTuner() : startTuner(); };
+
+  // ---------- drone screen ----------
+  // The trainer's drone panel and the drone tab are two views of one drone.
+  // Both write through these setters, and renderDrone() re-syncs every view.
+  function setDroneNote(concertMidi) {
+    el.droneNote.value = concertMidi;
+    if (drone) startDrone();
+    renderDrone();
+  }
+
+  function setDroneActive(on) {
+    el.droneOn.checked = on;
+    on ? startDrone() : stopDrone();
+    renderDrone();
+  }
+
+  function renderDrone() {
+    const on = !!drone;
+    const m = +el.droneNote.value;
+    const naming = `${writtenName(m)}${offset() ? ` · ${midiToName(m)} concert` : ""}`;
+    el.droneOn.checked = on;
+    el.droneBigBtn.textContent = on ? "Stop drone" : "Start drone";
+    el.droneBigBtn.classList.toggle("primary", !on);
+    el.droneNow.textContent = on
+      ? `Sounding ${naming} · ${midiToFreq(m).toFixed(1)} Hz`
+      : `Ready on ${naming}`;
+    el.droneVol2.value = el.droneVol.value;
+    for (const btn of el.droneKeys.children) {
+      btn.classList.toggle("on", +btn.dataset.midi === m && on);
+    }
+  }
+
+  // One button per written note of the horn. Rebuilt when the instrument
+  // changes, since that changes what each fingering sounds.
+  function buildDroneKeys() {
+    el.droneKeys.textContent = "";
+    for (let written = SAX_WRITTEN_LOW; written <= SAX_WRITTEN_HIGH; written++) {
+      const concertMidi = written - offset();
+      const btn = document.createElement("button");
+      btn.className = "key";
+      btn.dataset.midi = concertMidi;
+      btn.innerHTML = `<span class="keyName">${midiToName(written)}</span>` +
+        (offset() ? `<span class="keySub">${midiToName(concertMidi)}</span>` : "");
+      btn.onclick = () => {
+        // Tapping the note that is already sounding turns it off.
+        if (drone && +el.droneNote.value === concertMidi) return setDroneActive(false);
+        setDroneNote(concertMidi);
+        setDroneActive(true);
+      };
+      el.droneKeys.append(btn);
+    }
+    renderDrone();
+  }
+
+  el.droneBigBtn.onclick = () => setDroneActive(!drone);
+  el.droneOn.onchange = () => setDroneActive(el.droneOn.checked);
+  el.droneNote.addEventListener("change", renderDrone);
+  el.droneVol2.oninput = () => {
+    el.droneVol.value = el.droneVol2.value;
+    el.droneVol.dispatchEvent(new Event("input"));
+  };
+
+  // ---------- tabs ----------
+  let activeTab = "trainer";
+  const tabButtons = document.querySelectorAll(".tab");
+
+  function showTab(name) {
+    activeTab = name;
+    for (const btn of tabButtons) btn.classList.toggle("active", btn.dataset.tab === name);
+    for (const panel of document.querySelectorAll(".tabPanel")) {
+      panel.hidden = panel.id !== "panel-" + name;
+    }
+  }
+  tabButtons.forEach(btn => { btn.onclick = () => showTab(btn.dataset.tab); });
+
+  buildDroneKeys();
+
+  // ---------- start ----------
+  async function start() {
+    el.startBtn.disabled = true;
+    el.status.textContent = "Requesting microphone…";
+    try {
+      await acquireMic("trainer");
     } catch (err) {
       el.status.textContent = "Microphone unavailable: " + err.message;
       el.startBtn.disabled = false;
@@ -827,7 +1168,6 @@
     shownSeconds = -1;
     updateTimer();
     updateStreak();
-    tick();
     newRound();
   }
 
@@ -839,9 +1179,7 @@
     listening = false;
     solved = false;
     clearRepeat();
-    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
-    analyser = null;
+    releaseMic("trainer");
 
     el.startBtn.textContent = "Start";
     el.startBtn.classList.add("primary");
@@ -874,7 +1212,8 @@
   el.nextBtn.onclick = () => { if (running) skip(); };
 
   document.addEventListener("keydown", e => {
-    if (!running || e.target.matches("input, select, textarea")) return;
+    if (!running || activeTab !== "trainer") return;
+    if (e.target.matches("input, select, textarea")) return;
     if (e.code === "Space") { e.preventDefault(); replay(); }
     if (e.key.toLowerCase() === "n") { e.preventDefault(); skip(); }
   });

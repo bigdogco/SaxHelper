@@ -23,6 +23,19 @@ local files. Serve the folder instead and open `http://localhost:8000`:
 python3 -m http.server 8000
 ```
 
+## Three tabs
+
+- **Trainer** — the note-matching exercise below.
+- **Tuner** — a plain chromatic tuner. Play anything, see what it is and how far
+  out, named as you finger it. Green within 10 cents.
+- **Drone** — one button per note of the horn, low B♭ to high F#, named as you
+  finger them. Tap to sound, tap again to stop.
+
+The trainer keeps its own drone controls, and both are views of the same drone,
+so switching tabs never interrupts it. The trainer and tuner share one
+microphone: it's opened when either starts listening and released only once both
+have stopped.
+
 ## How to use it
 
 Press **Start**, listen to the note, then play or sing it back. Hold it inside
@@ -54,7 +67,8 @@ horn can't actually finger, it says so.
 
 ### Reference drone
 
-A note held continuously underneath, in its own panel. Play against it and
+A note held continuously underneath — in the trainer's own panel, or on the
+Drone tab where every note of the horn is a button. Play against it and
 listen for the wobble — that pulsing *is* how far out you are, and its speed is
 the difference in hertz. When it slows to nothing and the two notes fuse, you're
 in tune. It's the fastest way to build real intonation rather than needle-
