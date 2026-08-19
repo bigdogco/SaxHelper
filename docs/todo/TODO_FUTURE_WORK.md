@@ -40,3 +40,5 @@ pick from here when starting a new task.
 - **Octave-numbering setting.** Scientific, Yamaha, or numbered from the horn's
   low B♭, so labels can match whatever other app is on the music stand. Display
   only. See `docs/CHALLENGES.md`.
+- **Per-setting memory.** Tolerance, hold, note length and the rest reset on
+  reload. `localStorage` would keep a practice setup between sessions.
