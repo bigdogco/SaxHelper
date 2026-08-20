@@ -41,15 +41,19 @@
   /* --- main stage --- */
   #stage { text-align: center; transition: background-color .25s; }
   #stage.hit { background: #1b3324; border-color: var(--good); }
-  #answer {
-    font-size: 64px;
-    font-weight: 600;
-    line-height: 1.1;
-    letter-spacing: -.02em;
-    min-height: 72px;
-    font-variant-numeric: tabular-nums;
+  /* The big note readout, shared by the trainer's answer and the tuner. */
+  .noteRow { display: flex; justify-content: center; gap: 32px; min-height: 86px; }
+  .notePart[hidden] { display: none; }
+  .bigNote {
+    font-size: 58px; font-weight: 600; line-height: 1.1;
+    letter-spacing: -.02em; font-variant-numeric: tabular-nums;
   }
-  #answer.masked { color: var(--dim); }
+  .noteTag {
+    font-size: 10px; color: var(--dim); letter-spacing: .08em;
+    text-transform: uppercase; margin-top: 2px;
+  }
+  .noteRow.masked .bigNote { color: var(--dim); }
+  .noteRow.on .bigNote { color: var(--good); }
   #answerSub { color: var(--dim); font-size: 14px; min-height: 21px; }
   #status { color: var(--dim); min-height: 22px; margin-top: 4px; }
   #streak { color: var(--dim); font-size: 13px; margin-top: 10px; }
@@ -144,18 +148,7 @@
 
   /* --- tuner --- */
   #tunerPanel { text-align: center; }
-  #tunerNote { display: flex; justify-content: center; gap: 32px; min-height: 86px; }
-  .tunerPart[hidden] { display: none; }
-  .tunerBig {
-    font-size: 58px; font-weight: 600; line-height: 1.1;
-    letter-spacing: -.02em; font-variant-numeric: tabular-nums;
-  }
-  .tunerTag {
-    font-size: 10px; color: var(--dim); letter-spacing: .08em;
-    text-transform: uppercase; margin-top: 2px;
-  }
-  #tunerNote.masked .tunerBig { color: var(--dim); }
-  #tunerNote.on .tunerBig { color: var(--good); }
+
   #tunerSub { color: var(--dim); font-size: 14px; min-height: 21px; }
   #tunerMeter {
     position: relative; height: 44px; margin-top: 14px;
@@ -261,7 +254,19 @@
 <p class="sub">Hear a note, then play or sing it back. Hold it steady until it locks in.</p>
 
 <div class="panel" id="stage">
-  <div id="answer" class="masked">?</div>
+  <div id="answer" class="noteRow masked">
+    <div class="notePart" id="answerUnknownPart">
+      <div class="bigNote">?</div>
+    </div>
+    <div class="notePart" id="answerConcertPart" hidden>
+      <div class="bigNote" id="answerConcert">—</div>
+      <div class="noteTag">concert</div>
+    </div>
+    <div class="notePart" id="answerFingeredPart" hidden>
+      <div class="bigNote" id="answerFingered">—</div>
+      <div class="noteTag">as you finger it</div>
+    </div>
+  </div>
   <div id="answerSub"></div>
   <div id="status">Press Start to enable your microphone.</div>
 
@@ -380,14 +385,14 @@
 <p class="sub">A plain chromatic tuner. Play anything and it tells you what it is and how far out.</p>
 
 <div class="panel" id="tunerPanel">
-  <div id="tunerNote" class="masked">
-    <div class="tunerPart">
-      <div class="tunerBig" id="tunerConcert">—</div>
-      <div class="tunerTag">concert</div>
+  <div id="tunerNote" class="noteRow masked">
+    <div class="notePart">
+      <div class="bigNote" id="tunerConcert">—</div>
+      <div class="noteTag">concert</div>
     </div>
-    <div class="tunerPart" id="tunerFingeredPart">
-      <div class="tunerBig" id="tunerFingered">—</div>
-      <div class="tunerTag">as you finger it</div>
+    <div class="notePart" id="tunerFingeredPart">
+      <div class="bigNote" id="tunerFingered">—</div>
+      <div class="noteTag">as you finger it</div>
     </div>
   </div>
   <div id="tunerSub"></div>
@@ -502,6 +507,9 @@
   const $ = id => document.getElementById(id);
   const el = {
     stage: $("stage"), answer: $("answer"), answerSub: $("answerSub"),
+    answerUnknownPart: $("answerUnknownPart"), answerConcertPart: $("answerConcertPart"),
+    answerFingeredPart: $("answerFingeredPart"),
+    answerConcert: $("answerConcert"), answerFingered: $("answerFingered"),
     status: $("status"), streak: $("streak"),
     meterWrap: $("meterWrap"), needle: $("needle"), zone: $("zone"), heard: $("heard"),
     timer: $("timer"),
@@ -932,7 +940,7 @@
       el.needle.classList.toggle("on", onPitch);
       const heardMidi = Math.round(freqToMidiFloat(freq));
       el.heard.textContent =
-        `${freq.toFixed(1)} Hz · ${writtenName(heardMidi)}${offset() ? ` (${midiToName(heardMidi)} concert)` : ""}` +
+        `${freq.toFixed(1)} Hz · ${midiToName(heardMidi)}${offset() ? ` · ${writtenName(heardMidi)} fingered` : ""}` +
         ` · ${cents >= 0 ? "+" : ""}${cents.toFixed(0)} cents`;
     }
 
@@ -956,17 +964,23 @@
   // Reveals or re-masks the answer; also called when the instrument changes.
   function refreshAnswer() {
     if (target === null) return;
-    if (solved) {
-      el.answer.textContent = writtenName(target);
-      el.answer.classList.remove("masked");
-      el.answerSub.textContent = offset()
-        ? `written ${writtenName(target)} · sounding ${midiToName(target)} concert · ${midiToFreq(target).toFixed(1)} Hz`
-        : `${midiToFreq(target).toFixed(1)} Hz`;
-    } else {
-      el.answer.textContent = "?";
-      el.answer.classList.add("masked");
-      el.answerSub.textContent = "";
-    }
+    maskAnswer(!solved);
+    if (!solved) return;
+    el.answerConcert.textContent = midiToName(target);
+    el.answerFingered.textContent = writtenName(target);
+    el.answerSub.textContent = `${midiToFreq(target).toFixed(1)} Hz`;
+  }
+
+  // Same two-column readout as the tuner: concert first, since that is the
+  // pitch in the air, with the fingering beside it. While the answer is still
+  // hidden both columns give way to a single question mark, so the layout
+  // can't leak whether the instrument transposes.
+  function maskAnswer(hide) {
+    el.answerUnknownPart.hidden = !hide;
+    el.answerConcertPart.hidden = hide;
+    el.answerFingeredPart.hidden = hide || !offset();
+    el.answer.classList.toggle("masked", hide);
+    if (hide) el.answerSub.textContent = "";
   }
 
   function succeed() {
@@ -976,7 +990,7 @@
     hits++; attempts++;
     el.stage.classList.add("hit");
     refreshAnswer();
-    el.status.textContent = `Got it — ${writtenName(target)}.`;
+    el.status.textContent = "Got it!";
     updateStreak();
     playVictory();
     if (el.autoNext.checked) setTimeout(() => { if (running && solved) newRound(); }, 2200);
@@ -1319,9 +1333,7 @@
     el.heard.textContent = "";
     el.stage.classList.remove("hit");
     target = null;                 // refreshAnswer() no-ops without one
-    el.answer.textContent = "?";
-    el.answer.classList.add("masked");
-    el.answerSub.textContent = "";
+    maskAnswer(true);
     el.status.textContent = "Stopped — the mic is off. Press Start to go again.";
 
     // Freeze the clock where it stopped, and say so, so the number on screen

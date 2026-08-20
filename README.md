@@ -62,10 +62,16 @@ alone, which is a gentler start than all six.
 
 ### Transposition
 
-Pick your instrument and every note is shown as you finger it, with the concert
-pitch alongside — `A3 · G2 concert`. Tenor, alto, soprano/clarinet/trumpet,
-baritone, and straight concert pitch for voice or piano. Note names use flat
-spellings, since B♭ and E♭ horns live in flat keys. If you pick a range your
+Pick your instrument — tenor, alto, soprano/clarinet/trumpet, baritone, or
+straight concert pitch for voice and piano — and every note is shown twice, side
+by side: the concert pitch first, since that is what is actually sounding, with
+the fingering next to it. The trainer's revealed answer and the tuner use the
+same readout. On a non-transposing instrument the second column disappears
+rather than repeating itself.
+
+Note names use flat spellings, since B♭ and E♭ horns live in flat keys, and
+octaves follow scientific pitch notation, where A4 is 440 Hz. Other apps may
+number octaves differently — see `docs/CHALLENGES.md`. If you pick a range your
 horn can't actually finger, it says so.
 
 ### Reference drone
