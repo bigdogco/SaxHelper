@@ -43,6 +43,13 @@ so switching tabs never interrupts it. The trainer and tuner share one
 microphone: it's opened when either starts listening and released only once both
 have stopped.
 
+**Your screen won't sleep while anything is running.** The app takes a screen
+wake lock whenever the trainer, tuner, drone or metronome is going, and releases
+it as soon as they all stop, so an idle page doesn't drain the battery. A line
+under the tabs tells you whether the lock is actually held — including when the
+browser refuses it, which iOS Low Power Mode will. It needs HTTPS, so use the
+hosted link rather than a local file.
+
 ## How to use it
 
 Press **Start**, listen to the note, then play or sing it back. Hold it inside

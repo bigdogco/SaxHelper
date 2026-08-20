@@ -34,8 +34,12 @@ pick from here when starting a new task.
 - Preset ranges per horn ("tenor low register", "the break", "full range")
 - Configurable reference pitch (A=440 / 442)
 - Choice of target timbre, including a real sampled sax note
-- Metronome / pacing, and an auto-advance mode with a fixed time per note
-- Mobile layout and screen-wake handling
+- **Pace the trainer from the metronome** — a new note every bar, so you answer
+  on the beat. The metronome itself was built 2026-08-20; this is the part that
+  makes the two worth having together.
+- **Silent bars on the metronome** — mute every other bar or two, to test
+  whether your time holds when the click stops.
+- Mobile layout (screen-wake handling done 2026-08-21)
 - Offline install (service worker, PWA manifest)
 - **Octave-numbering setting.** Scientific, Yamaha, or numbered from the horn's
   low B♭, so labels can match whatever other app is on the music stand. Display

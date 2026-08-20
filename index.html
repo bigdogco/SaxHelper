@@ -146,6 +146,19 @@
   }
   .tabPanel[hidden] { display: none; }
 
+  /* --- screen wake indicator --- */
+  #wakeStatus {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; color: var(--dim); margin-top: -8px;
+  }
+  #wakeStatus[hidden] { display: none; }
+  #wakeStatus::before {
+    content: ""; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--good); flex: none;
+  }
+  #wakeStatus.warn { color: var(--warn); }
+  #wakeStatus.warn::before { background: var(--warn); }
+
   /* --- tuner --- */
   #tunerPanel { text-align: center; }
 
@@ -271,6 +284,8 @@
   <button class="tab" data-tab="drone">Drone</button>
   <button class="tab" data-tab="metro">Metronome</button>
 </nav>
+
+<div id="wakeStatus" hidden></div>
 
 <section class="tabPanel" id="panel-trainer">
 <p class="sub">Hear a note, then play or sing it back. Hold it steady until it locks in.</p>
@@ -581,7 +596,7 @@
     answerConcert: $("answerConcert"), answerFingered: $("answerFingered"),
     status: $("status"), streak: $("streak"),
     meterWrap: $("meterWrap"), needle: $("needle"), zone: $("zone"), heard: $("heard"),
-    timer: $("timer"),
+    timer: $("timer"), wakeStatus: $("wakeStatus"),
     startBtn: $("startBtn"), replayBtn: $("replayBtn"), nextBtn: $("nextBtn"),
     instrument: $("instrument"), rangeWarn: $("rangeWarn"), practiceSet: $("practiceSet"),
     lowNote: $("lowNote"), highNote: $("highNote"),
@@ -617,6 +632,64 @@
   let rafId = null;
 
   const METER_RANGE = 100;        // cents shown edge-to-edge each way
+
+  // ---------- keeping the screen awake ----------
+  // Held only while something is actually running, so a page left open on a
+  // music stand isn't burning battery for nothing. The browser drops the lock
+  // whenever the page stops being visible and never restores it by itself,
+  // which is the part most implementations miss — hence the visibilitychange
+  // handler below.
+  const wakeReasons = new Set();
+  let wakeLock = null, wakeRequestInFlight = false;
+
+  function setWakeStatus(text, warn) {
+    el.wakeStatus.hidden = !text;
+    el.wakeStatus.textContent = text;
+    el.wakeStatus.classList.toggle("warn", !!warn);
+  }
+
+  async function updateWakeLock() {
+    if (!wakeReasons.size) {                       // nothing running: let go
+      const held = wakeLock;
+      wakeLock = null;
+      setWakeStatus("");
+      if (held) { try { await held.release(); } catch (err) { /* already gone */ } }
+      return;
+    }
+    if (!("wakeLock" in navigator)) {
+      setWakeStatus("This browser won't keep the screen awake — set your screen timeout by hand.", true);
+      return;
+    }
+    if (wakeLock || wakeRequestInFlight || document.visibilityState !== "visible") return;
+
+    wakeRequestInFlight = true;
+    try {
+      const lock = await navigator.wakeLock.request("screen");
+      wakeLock = lock;
+      lock.addEventListener("release", () => {
+        if (wakeLock === lock) wakeLock = null;
+        if (wakeReasons.size) {
+          setWakeStatus("Screen lock dropped — come back to this tab to restore it.", true);
+        }
+      });
+      setWakeStatus("Screen will stay awake");
+    } catch (err) {
+      // Refused: page not visible, or something like iOS Low Power Mode.
+      setWakeStatus(`Couldn't keep the screen awake (${err.name})`, true);
+    } finally {
+      wakeRequestInFlight = false;
+    }
+  }
+
+  // Every running thing registers a reason; the lock is held while any remain.
+  function keepAwake(reason, wanted) {
+    if (wanted) wakeReasons.add(reason); else wakeReasons.delete(reason);
+    updateWakeLock();
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") updateWakeLock();
+  });
 
   // ---------- transposition ----------
   // Everything internal is concert MIDI; `written` is only for display.
@@ -1174,6 +1247,7 @@
       return;
     }
     tunerRunning = true;
+    keepAwake("tuner", true);
     tunerQuietSince = 0;
     el.tunerBtn.disabled = false;
     el.tunerBtn.textContent = "Stop";
@@ -1183,6 +1257,7 @@
 
   function stopTuner() {
     tunerRunning = false;
+    keepAwake("tuner", false);
     releaseMic("tuner");
     el.tunerBtn.textContent = "Start tuner";
     el.tunerBtn.classList.add("primary");
@@ -1314,6 +1389,7 @@
     for (const btn of el.droneKeys.children) {
       btn.classList.toggle("on", +btn.dataset.midi === m && on);
     }
+    keepAwake("drone", on);   // derived here, so every path stays consistent
   }
 
   // One button per written note of the horn. Rebuilt when the instrument
@@ -1404,6 +1480,7 @@
   function startMetro() {
     ensureCtx();
     metroRunning = true;
+    keepAwake("metro", true);
     nextBeat = 0;
     pendingBeats = [];
     nextClickTime = audioCtx.currentTime + 0.06;   // a beat's grace to schedule
@@ -1414,6 +1491,7 @@
 
   function stopMetro() {
     metroRunning = false;
+    keepAwake("metro", false);
     clearTimeout(metroTimer);
     metroTimer = null;
     pendingBeats = [];
@@ -1495,6 +1573,7 @@
     }
 
     running = true;
+    keepAwake("trainer", true);
     el.startBtn.disabled = false;
     el.startBtn.textContent = "Stop";
     el.startBtn.classList.remove("primary");
@@ -1513,6 +1592,7 @@
   // reference pitch while not being scored is a reasonable thing to want.
   function stop() {
     running = false;
+    keepAwake("trainer", false);
     listening = false;
     solved = false;
     clearRepeat();
