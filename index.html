@@ -221,6 +221,27 @@
     min-height: 20px; font-variant-numeric: tabular-nums;
   }
 
+  /* --- metronome --- */
+  #metroPanel { text-align: center; }
+  #metroBpm {
+    font-size: 58px; font-weight: 600; line-height: 1.1;
+    letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+  }
+  #beatDots {
+    display: flex; justify-content: center; flex-wrap: wrap;
+    gap: 10px; margin: 18px 0 16px;
+  }
+  .beatDot {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #262b34; border: 1px solid var(--line);
+    transition: background-color .05s, transform .05s;
+  }
+  .beatDot.accent { border-color: #47505e; }
+  .beatDot.lit { background: var(--accent); border-color: var(--accent); transform: scale(1.25); }
+  .beatDot.accent.lit { background: var(--good); border-color: var(--good); }
+  #tempo { width: 100%; }
+  #tempoDown, #tempoUp { min-width: 52px; font-size: 18px; line-height: 1; }
+
   /* --- drone tab --- */
   #droneNow { color: var(--dim); font-size: 13px; text-align: center; margin-top: 12px; }
   .volLabel { display: block; color: var(--dim); font-size: 12px; margin-bottom: 4px; }
@@ -248,6 +269,7 @@
   <button class="tab active" data-tab="trainer">Trainer</button>
   <button class="tab" data-tab="tuner">Tuner</button>
   <button class="tab" data-tab="drone">Drone</button>
+  <button class="tab" data-tab="metro">Metronome</button>
 </nav>
 
 <section class="tabPanel" id="panel-trainer">
@@ -464,6 +486,53 @@
 </div>
 </section>
 
+<section class="tabPanel" id="panel-metro" hidden>
+<p class="sub">Keep time. Pairs with the drone for long tones in time against a reference pitch.</p>
+
+<div class="panel" id="metroPanel">
+  <div id="metroBpm">120</div>
+  <div class="noteTag">beats per minute</div>
+
+  <div id="beatDots"></div>
+
+  <input type="range" id="tempo" min="30" max="250" step="1" value="120">
+
+  <div class="row">
+    <button id="tempoDown" title="Slower">−</button>
+    <button id="metroBtn" class="primary">Start</button>
+    <button id="tempoUp" title="Faster">+</button>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <button id="tapBtn">Tap tempo</button>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="settings">
+    <div>
+      <label>Beats per bar <span class="val" id="beatsVal">4</span></label>
+      <input type="range" id="beatsPerBar" min="1" max="12" step="1" value="4">
+    </div>
+    <div>
+      <label>Volume <span class="val" id="metroVolVal">60</span>%</label>
+      <input type="range" id="metroVol" min="0" max="100" step="5" value="60">
+    </div>
+    <div class="full check">
+      <input type="checkbox" id="accentFirst" checked>
+      <label for="accentFirst" style="margin:0">Accent beat 1 — uncheck to make every beat sound the same</label>
+    </div>
+    <p class="full hint" style="margin:2px 0 0">
+      <kbd>Space</kbd> starts and stops while this tab is open.<br>
+      Clicks are scheduled ahead on the audio clock rather than fired from a timer,
+      so the tempo stays exact however busy the page gets. Keep this tab in front
+      while you play — browsers throttle background tabs hard enough to stutter it.<br>
+      <strong>Headphones again.</strong> On speakers the trainer's microphone hears
+      the click along with your note.
+    </p>
+  </div>
+</div>
+</section>
+
 <script>
 (() => {
   "use strict";
@@ -527,6 +596,11 @@
     tunerNote: $("tunerNote"), tunerSub: $("tunerSub"), tunerNeedle: $("tunerNeedle"),
     tunerConcert: $("tunerConcert"), tunerFingered: $("tunerFingered"),
     tunerFingeredPart: $("tunerFingeredPart"),
+    metroBpm: $("metroBpm"), beatDots: $("beatDots"), tempo: $("tempo"),
+    metroBtn: $("metroBtn"), tapBtn: $("tapBtn"),
+    tempoDown: $("tempoDown"), tempoUp: $("tempoUp"),
+    beatsPerBar: $("beatsPerBar"), beatsVal: $("beatsVal"), accentFirst: $("accentFirst"),
+    metroVol: $("metroVol"), metroVolVal: $("metroVolVal"),
     rulerTicks: $("rulerTicks"), rulerMarker: $("rulerMarker"),
     markerNote: $("markerNote"), markerCents: $("markerCents"), rulerNote: $("rulerNote"),
     tunerHz: $("tunerHz"), tunerBtn: $("tunerBtn"),
@@ -1272,6 +1346,126 @@
     el.droneVol.dispatchEvent(new Event("input"));
   };
 
+  // ---------- metronome ----------
+  // Two clocks. The audio clock decides when a click sounds — every one is
+  // scheduled ahead at an exact AudioContext time, so the tempo cannot drift.
+  // A plain timer only decides when to top the queue up, and its jitter is
+  // absorbed by the lookahead window. Driving clicks straight from a timer or
+  // from animation frames is what makes browser metronomes wobble; animation
+  // frames stop entirely in a background tab, as this app has already seen.
+  const LOOKAHEAD_MS = 25;        // how often to top up the queue
+  const SCHEDULE_AHEAD = 0.12;    // how far ahead to schedule, in seconds
+  const CLICK_ACCENT_HZ = 1600, CLICK_HZ = 1000;
+
+  let metroRunning = false, metroTimer = null;
+  let nextClickTime = 0, nextBeat = 0;
+  let pendingBeats = [];          // scheduled but not yet sounded, for the dots
+  let taps = [];
+
+  const bpm = () => +el.tempo.value;
+  const beatsPerBar = () => +el.beatsPerBar.value;
+  const metroLevel = () => +el.metroVol.value / 100;
+
+  function scheduleClick(beat, when) {
+    const accent = beat === 0 && beatsPerBar() > 1 && el.accentFirst.checked;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.frequency.value = accent ? CLICK_ACCENT_HZ : CLICK_HZ;
+    gain.gain.setValueAtTime(0, when);
+    gain.gain.linearRampToValueAtTime((accent ? 0.5 : 0.32) * metroLevel(), when + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.05);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(when);
+    osc.stop(when + 0.06);
+    pendingBeats.push({ beat, when });
+  }
+
+  function metroTick() {
+    // Light the dot for any beat that has now sounded. Driven from this timer
+    // rather than animation frames, so it survives a backgrounded tab.
+    const now = audioCtx.currentTime;
+    while (pendingBeats.length && pendingBeats[0].when <= now) {
+      lightBeat(pendingBeats.shift().beat);
+    }
+    while (nextClickTime < now + SCHEDULE_AHEAD) {
+      scheduleClick(nextBeat, nextClickTime);
+      nextClickTime += 60 / bpm();          // read fresh, so tempo changes take
+      nextBeat = (nextBeat + 1) % beatsPerBar();   // effect from the next beat
+    }
+    metroTimer = setTimeout(metroTick, LOOKAHEAD_MS);
+  }
+
+  function lightBeat(beat) {
+    for (const dot of el.beatDots.children) dot.classList.remove("lit");
+    const dot = el.beatDots.children[beat];
+    if (dot) dot.classList.add("lit");
+  }
+
+  function startMetro() {
+    ensureCtx();
+    metroRunning = true;
+    nextBeat = 0;
+    pendingBeats = [];
+    nextClickTime = audioCtx.currentTime + 0.06;   // a beat's grace to schedule
+    el.metroBtn.textContent = "Stop";
+    el.metroBtn.classList.remove("primary");
+    metroTick();
+  }
+
+  function stopMetro() {
+    metroRunning = false;
+    clearTimeout(metroTimer);
+    metroTimer = null;
+    pendingBeats = [];
+    el.metroBtn.textContent = "Start";
+    el.metroBtn.classList.add("primary");
+    for (const dot of el.beatDots.children) dot.classList.remove("lit");
+  }
+
+  function buildBeatDots() {
+    el.beatDots.textContent = "";
+    for (let i = 0; i < beatsPerBar(); i++) {
+      const dot = document.createElement("div");
+      // Only mark the first dot when it will actually sound different, so the
+      // display never promises an accent you won't hear.
+      const accented = i === 0 && beatsPerBar() > 1 && el.accentFirst.checked;
+      dot.className = "beatDot" + (accented ? " accent" : "");
+      el.beatDots.append(dot);
+    }
+  }
+
+  function setTempo(value) {
+    const clamped = Math.max(+el.tempo.min, Math.min(+el.tempo.max, Math.round(value)));
+    el.tempo.value = clamped;
+    el.metroBpm.textContent = clamped;
+  }
+
+  // Average the gaps between recent taps; a long pause starts a new count.
+  function tapTempo() {
+    const now = performance.now();
+    if (taps.length && now - taps[taps.length - 1] > 2000) taps = [];
+    taps.push(now);
+    if (taps.length > 5) taps.shift();
+    if (taps.length < 2) return;
+    const gaps = taps.slice(1).map((t, i) => t - taps[i]);
+    setTempo(60000 / (gaps.reduce((a, b) => a + b, 0) / gaps.length));
+  }
+
+  el.metroBtn.onclick = () => { metroRunning ? stopMetro() : startMetro(); };
+  el.tempo.oninput = () => setTempo(+el.tempo.value);
+  el.tempoDown.onclick = () => setTempo(bpm() - 1);
+  el.tempoUp.onclick = () => setTempo(bpm() + 1);
+  el.tapBtn.onclick = tapTempo;
+  el.beatsPerBar.oninput = () => {
+    el.beatsVal.textContent = el.beatsPerBar.value;
+    buildBeatDots();
+    if (metroRunning) nextBeat = 0;      // restart the bar rather than land mid-count
+  };
+  el.metroVol.oninput = () => { el.metroVolVal.textContent = el.metroVol.value; };
+  el.accentFirst.onchange = buildBeatDots;
+
+  buildBeatDots();
+
   // ---------- tabs ----------
   let activeTab = "trainer";
   const tabButtons = document.querySelectorAll(".tab");
@@ -1353,8 +1547,17 @@
   el.nextBtn.onclick = () => { if (running) skip(); };
 
   document.addEventListener("keydown", e => {
+    // e.target is an Element for real key presses, but guard anyway: a
+    // synthetic event dispatched on document would throw on .matches.
+    const onControl = e.target instanceof Element &&
+                      e.target.matches("input, select, textarea, button");
+    if (onControl) return;
+    if (activeTab === "metro" && e.code === "Space") {
+      e.preventDefault();
+      metroRunning ? stopMetro() : startMetro();
+      return;
+    }
     if (!running || activeTab !== "trainer") return;
-    if (e.target.matches("input, select, textarea")) return;
     if (e.code === "Space") { e.preventDefault(); replay(); }
     if (e.key.toLowerCase() === "n") { e.preventDefault(); skip(); }
   });
@@ -1362,6 +1565,7 @@
   window.addEventListener("pagehide", () => {
     if (rafId) cancelAnimationFrame(rafId);
     clearRepeat();
+    if (metroRunning) stopMetro();
     if (drone) stopDrone(0);
     if (micStream) micStream.getTracks().forEach(t => t.stop());
   });

@@ -23,7 +23,7 @@ local files. Serve the folder instead and open `http://localhost:8000`:
 python3 -m http.server 8000
 ```
 
-## Three tabs
+## Four tabs
 
 - **Trainer** — the note-matching exercise below.
 - **Tuner** — a plain chromatic tuner. Play anything and see what it is and how
@@ -33,6 +33,10 @@ python3 -m http.server 8000
   the ruler tells you which note you're on, so octave errors are obvious.
 - **Drone** — one button per note of the horn, low B♭ to high F#, named as you
   finger them. Tap to sound, tap again to stop.
+- **Metronome** — tempo 30–250 with tap tempo, beats per bar with beat 1
+  accented, and a row of dots you can read from a stand. Every click is
+  scheduled ahead on the audio clock rather than fired from a timer, so the
+  beat doesn't drift. Pairs with the drone for long tones in time.
 
 The trainer keeps its own drone controls, and both are views of the same drone,
 so switching tabs never interrupts it. The trainer and tuner share one
